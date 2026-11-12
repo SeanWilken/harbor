@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <!-- SqlHydra.Query 5.1 needs FSharp.Core >= 10.1.201; the SDK's implicit reference is 10.0.114 (a .targets file so Update sees it) -->
+    <PackageReference Update="FSharp.Core" Version="10.1.201" />
+  </ItemGroup>
+</Project>

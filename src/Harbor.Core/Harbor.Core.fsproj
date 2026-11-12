@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What every agent needs: domain types, git and system collectors, inventory, the push loop and
+       the hub link. No web server or database dependencies, so the lean agent stays small. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="BuildInfo.fs" />
+    <Compile Include="Domain.fs" />
+    <Compile Include="Proc.fs" />
+    <Compile Include="GitParse.fs" />
+    <Compile Include="Git.fs" />
+    <Compile Include="Discovery.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="Resources.fs" />
+    <Compile Include="Network.fs" />
+    <Compile Include="Manifest.fs" />
+    <Compile Include="Inventory.fs" />
+    <Compile Include="AgentStatus.fs" />
+    <Compile Include="AgentLink.fs" />
+    <Compile Include="Agent.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
+  </ItemGroup>
+</Project>

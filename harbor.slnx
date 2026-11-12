@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Harbor.Agent/Harbor.Agent.fsproj" />
+    <Project Path="src/Harbor.Core/Harbor.Core.fsproj" />
+    <Project Path="src/Harbor.Db/Harbor.Db.fsproj" />
+    <Project Path="src/Harbor.Tray/Harbor.Tray.fsproj" />
+    <Project Path="src/Harbor/Harbor.fsproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Harbor.Tests/Harbor.Tests.fsproj" />
+  </Folder>
+</Solution>

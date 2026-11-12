@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Generated SqlHydra types only (db/regen.sh). Kept apart so the generated code's
+       nullness warnings don't force Harbor itself off `Nullable` / warnings-as-errors. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="HarborDb.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="SqlHydra.Query" Version="5.1.1" />
+  </ItemGroup>
+</Project>

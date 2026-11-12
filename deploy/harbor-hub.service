@@ -1,0 +1,14 @@
+# harbor hub (+ this machine's own agent) as a systemd user service. Installed by deploy/install-hub.sh.
+[Unit]
+Description=harbor hub: machines, repos and services across the tailnet
+Wants=harbor-pg.service network-online.target
+After=harbor-pg.service network-online.target
+
+[Service]
+ExecStart=%h/.local/share/harbor/bin/Harbor both --config %h/.config/harbor/hub.json --ui %h/.local/share/harbor/ui
+WorkingDirectory=%h/.local/share/harbor/bin
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

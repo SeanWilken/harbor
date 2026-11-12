@@ -1,0 +1,22 @@
+# harbor-agent as a systemd user service (runs as you, sees your repos and your graphical session
+# for idle time). Install:
+#   mkdir -p ~/.local/bin ~/.config/harbor ~/.config/systemd/user
+#   cp harbor-agent ~/.local/bin/ && cp harbor.json ~/.config/harbor/
+#   cp harbor-agent.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now harbor-agent
+#   loginctl enable-linger "$USER"   # keep it running when you're logged out (e.g. a headless Pi)
+[Unit]
+Description=harbor agent: report this machine to the harbor hub
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/harbor-agent run --config %h/.config/harbor/harbor.json
+Restart=on-failure
+RestartSec=10
+# small and polite on an edge device
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=192M
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>harbor · every repo, every machine</title>
+<meta name="description" content="harbor is a self-hosted, deterministic view of your machines: repos, packages, services and storage across every box on your tailnet. No AI needed, light by default.">
+<meta property="og:title" content="harbor">
+<meta property="og:description" content="Every repo, every machine, one calm view. Self-hosted, deterministic, light by default.">
+<meta property="og:image" content="img/machine-desktop.png">
+<meta name="theme-color" content="#111616">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="anchor" viewBox="0 0 64 64">
+    <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M32 18 V54"/><path d="M14 38 Q14 54 32 54 Q50 54 50 38"/><path d="M22 28 H42"/>
+    </g>
+    <circle cx="32" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="5"/>
+    <circle cx="14" cy="36" r="5" fill="currentColor"/><circle cx="50" cy="36" r="5" fill="currentColor"/>
+  </symbol>
+</svg>
+
+<nav class="nav" aria-label="site">
+  <div class="wrap">
+    <a class="brand" href="./"><svg width="24" height="24"><use href="#anchor"/></svg><span>HARBOR</span></a>
+    <ul>
+      <li class="opt"><a href="#features">features</a></li>
+      <li class="opt"><a href="#architecture">architecture</a></li>
+      <li class="opt"><a href="#roadmap">roadmap</a></li>
+      <li><a href="install.html">install</a></li>
+      <li><a href="contribute.html">contribute</a></li>
+      <li><a class="gh" href="https://github.com/SeanWilken/harbor">github</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="label">self-hosted fleet view · F# · React · PostgreSQL</span>
+    <h1>Every repo,<br>every machine,<br><em>one calm view.</em></h1>
+    <p class="lede">harbor tracks <b>what exists where</b> across your machines: which clones are dirty or unpushed,
+      which services are up, what's installed, how full the disks are, and what changed this week.
+      A small agent on each box reports to a hub you run. Everything stays on your tailnet.</p>
+    <ul class="tenets">
+      <li>standalone</li><li>deterministic</li><li>no AI needed</li><li>light by default</li><li>tailnet only</li>
+    </ul>
+    <div class="cta">
+      <a class="btn primary" href="install.html">Install</a>
+      <a class="btn" href="#features">Take the tour</a>
+      <a class="btn" href="contribute.html">Contribute</a>
+    </div>
+    <div class="shots">
+      <figure style="margin:0">
+        <div class="frame"><picture><source media="(max-width: 640px)" srcset="img/machine-phone.png" width="780" height="1688"><img src="img/machine-desktop.png" width="1440" height="1000" alt="harbor's machine view: hostname BEACON, CPU, GPU, RAM and disk figures, top processes, and a repo list with dirty and ahead markers"></picture></div>
+      </figure>
+      <img class="phone" src="img/network-phone.png" width="780" height="1688" alt="harbor's network view on a phone: one card per machine with status, load and repo counts">
+    </div>
+    <p class="cap">Real UI, demo fleet. Machine names and data are made up.</p>
+  </div>
+</header>
+
+<section id="who">
+  <div class="wrap">
+    <span class="label">who it's for</span>
+    <h2>You have more machines than you can keep in your head.</h2>
+    <p class="intro">A desktop, a laptop, a Windows box for games, a Pi in a cupboard, a couple of servers.
+      Clones of the same project on three of them, one with a week of unpushed work. harbor is the ledger for that.</p>
+    <div class="cols">
+      <div class="tile"><span class="label">developers</span><p>See dirty, unpushed and behind clones on every machine before you switch desks, not after.</p></div>
+      <div class="tile"><span class="label">homelabbers</span><p>Services, disks and packages across the fleet, with a weekly recap of what drifted.</p></div>
+      <div class="tile"><span class="label">automations</span><p>A plain JSON API of deterministic facts that scripts and other tools can rely on instead of re-deriving them.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <span class="label">feature tour</span>
+    <h2>What harbor shows you</h2>
+
+    <div class="feature">
+      <div>
+        <h3>Repos across machines</h3>
+        <p>Agents walk your source roots and read git directly: branch, ahead/behind and since when,
+          staged / modified / untracked counts, worktrees, local branches, last fetch.</p>
+        <ul>
+          <li>The <b>repos</b> view groups clones by remote and flags when HEADs differ between machines.</li>
+          <li>Fetch one repo or all of them from the UI; nothing else touches your working tree.</li>
+          <li>Keyboard-first: <kbd>j</kbd>/<kbd>k</kbd>, <kbd>/</kbd> filter, <kbd>f</kbd> fetch, <kbd>h</kbd>/<kbd>l</kbd> tabs.</li>
+        </ul>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/repos-desktop.png"><img src="img/repos-desktop.png" width="1440" height="760" loading="lazy" alt="Repos cloned on several machines, grouped by remote, with HEADs differ and behind markers"></a></figure>
+    </div>
+
+    <div class="feature flip">
+      <div>
+        <h3>Packages and manifests</h3>
+        <p>Each agent builds a manifest: OS and kernel, packages per manager (dpkg with known upgrades, snap, flatpak)
+          and where every repo lives. It's hashed and stored only when it changes, so the history is a changelog.</p>
+        <ul>
+          <li>Search, filter by manager, see what's upgradable.</li>
+          <li>Diff any two manifests, or compare two machines.</li>
+          <li>Export as Markdown.</li>
+        </ul>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/packages-desktop.png"><img src="img/packages-desktop.png" width="1440" height="1300" loading="lazy" alt="Packages tab: chips per package manager, a package table and the manifest history"></a></figure>
+    </div>
+
+    <div class="feature">
+      <div>
+        <h3>Services and storage</h3>
+        <p>Declare the checks you care about per machine: systemd units (system or user), processes, TCP ports,
+          HTTP endpoints, podman containers. Disks show the fullest mount up front.</p>
+        <ul>
+          <li>CPU, GPU, RAM, load, uptime and input idle (working / idle) on every card.</li>
+          <li>Top processes grouped by program name, never full command lines.</li>
+        </ul>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/services-desktop.png"><img src="img/services-desktop.png" width="1440" height="1050" loading="lazy" alt="Services tab listing podman, systemd, HTTP and port checks with their state"></a></figure>
+    </div>
+
+    <div class="feature flip">
+      <div>
+        <h3>Weekly recap</h3>
+        <p>Every week the hub writes down what needs a look: repos behind upstream, uncommitted or unpushed work
+          older than a threshold, neglected projects, package changes, pending upgrades, and version drift between machines.</p>
+        <ul>
+          <li>Thresholds are yours (<code>behindDays</code>, <code>dirtyDays</code>, <code>neglectedDays</code>).</li>
+          <li>Live for the last 7 days, or any stored week. 52 kept.</li>
+        </ul>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/recap-desktop.png"><img src="img/recap-desktop.png" width="1440" height="1100" loading="lazy" alt="Recap: behind, uncommitted, unpushed and neglected repos, machine package changes and version drift"></a></figure>
+    </div>
+
+    <div class="feature">
+      <div>
+        <h3>Pairing codes</h3>
+        <p>New machines show up as <b>pending</b> until an admin approves them. Or skip the wait:
+          create a one-time code (ten minutes, one use) and run <code>harbor-agent pair</code> on the new box.
+          The approval is audited against whoever made the code.</p>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/pair-desktop.png"><img src="img/pair-desktop.png" width="1440" height="760" loading="lazy" alt="Pair a device dialog with a one-time code and the command to run on the new machine"></a></figure>
+    </div>
+
+    <div class="feature flip">
+      <div>
+        <h3>The tray's tether light</h3>
+        <p><code>harbor-tray</code> sits in the desktop's top bar and tells you, at a glance, whether this machine is
+          tethered to the hub. Its menu opens harbor, pairs devices, shows the agent log, toggles start at login and
+          offers <b>Update harbor…</b> when the hub knows newer commits. Headless machines use <code>harbor-agent status</code> (exit 0 / 1 / 2).</p>
+      </div>
+      <div>
+        <div class="tray" role="img" aria-label="Mockup of the tray icon and its menu">
+          <div class="bar"><span>Thu 14:02</span><svg width="18" height="18" style="color:var(--ok)"><use href="#anchor"/></svg></div>
+          <div class="menu">
+            <div class="st">tethered · beacon:7420</div>
+            <div class="st">fleet: 4 machines · 1 pending</div>
+            <hr><div>Open harbor</div><div>Pair a device…</div><div>Agent log</div><div>Update harbor… <span class="dim">(2 newer)</span></div>
+            <hr><div>✓ Start at login</div><div>Quit</div>
+          </div>
+          <div class="lights">
+            <span><svg width="16" height="16" style="color:var(--ok)"><use href="#anchor"/></svg>tethered</span>
+            <span><svg width="16" height="16" style="color:var(--warn)"><use href="#anchor"/></svg>waiting</span>
+            <span><svg width="16" height="16" style="color:var(--danger)"><use href="#anchor"/></svg>not tethered</span>
+            <span><svg width="16" height="16" style="color:var(--dim2)"><use href="#anchor"/></svg>no agent here</span>
+          </div>
+        </div>
+        <p class="cap"><span class="mock">mockup</span> &nbsp;drawn for this page; the real tray is an Avalonia app.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div>
+        <h3>Roles and redaction</h3>
+        <p>Every request is identified by Tailscale. <b>Admins</b> (loopback, or listed logins) see everything and can approve,
+          fetch, hide and rescan. <b>Viewers</b> get a read-only UI with process lists, MAC and LAN addresses, git identities,
+          changed file names, service details, job output and package contents removed. Anyone else gets a 403.</p>
+        <ul>
+          <li>Fails closed: nothing configured means admins only.</li>
+          <li>Admin actions are audit events with an actor.</li>
+          <li>Credentials are stripped from remote URLs before anything leaves the machine.</li>
+          <li>Remote actions are a per-agent allow-list (default: <code>fetch</code>). No shell.</li>
+        </ul>
+      </div>
+      <figure style="margin:0"><a class="frame" href="img/viewer-desktop.png"><img src="img/viewer-desktop.png" width="1440" height="900" loading="lazy" alt="The same machine seen by a viewer: a view-only badge, no top processes, no service details, no fetch or rescan buttons"></a>
+        <figcaption>A viewer's view of the same machine: no process list, no service details, no actions.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="light">
+  <div class="wrap">
+    <span class="label">light by default</span>
+    <h2>Less data, clearer meaning.</h2>
+    <p class="intro">harbor is not a metrics database or a telemetry pipeline. It keeps the current state, the transitions that matter,
+      and an audit of what you asked it to do. Measured on x86-64:</p>
+    <div class="figures">
+      <div class="fig"><div class="label">agent binary</div><div class="num">22<small> MB</small></div><div class="bar"><span style="width:20%"></span></div><p>self-contained, trimmed; needs only git</p></div>
+      <div class="fig"><div class="label">agent memory</div><div class="num">37<small> MB</small></div><div class="bar"><span style="width:30%"></span></div><p>private, plus the mapped program; 12 threads</p></div>
+      <div class="fig"><div class="label">agent cpu</div><div class="num">0.1<small> s/min</small></div><div class="bar"><span style="width:4%"></span></div><p>between rescans</p></div>
+      <div class="fig"><div class="label">heartbeat</div><div class="num">5<small> min</small></div><div class="bar"><span style="width:50%"></span></div><p>fetch and manifest daily; refresh when you open a machine</p></div>
+      <div class="fig"><div class="label">unchanged push</div><div class="num">0<small> rows</small></div><div class="bar"><span style="width:0%"></span></div><p>only changed repo and service rows are written</p></div>
+      <div class="fig"><div class="label">retention</div><div class="num">90<small> days</small></div><div class="bar"><span style="width:60%"></span></div><p>events and manifests; audit kept; 52 recaps</p></div>
+    </div>
+    <div class="cols">
+      <div class="tile"><span class="label">standalone</span><p>One hub, one agent per machine. No cloud service, no account, no required companion app.</p></div>
+      <div class="tile"><span class="label">deterministic</span><p>Every fact is collected and every recap decided by plain code you can read and test. No AI in the loop, so other tools (AI agents included) can trust it as a source.</p></div>
+      <div class="tile"><span class="label">outbound only</span><p>Agents listen on nothing reachable, need no certificate and no inbound port. They connect out to the hub.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <span class="label">architecture</span>
+    <h2>Hub, agents, tray.</h2>
+    <p class="intro">One F# codebase on .NET 10. The hub stores, diffs and serves; agents scan and push; the tray reads the agent's status.
+      Tailscale provides transport and identity, so harbor has no home-made PKI.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1000 440" role="img" aria-label="Agents on several machines push over the tailnet to the hub, which stores state in PostgreSQL and serves the UI to browsers">
+        <rect class="zone" x="20" y="20" width="960" height="400" rx="16"/>
+        <text class="z" x="40" y="48">TAILNET</text>
+        <rect class="box" x="60" y="80" width="230" height="74" rx="10"/>
+        <text class="t" x="80" y="110">agent · tugboat</text><text class="s" x="80" y="132">Windows · tray runs it</text>
+        <rect class="box" x="60" y="183" width="230" height="74" rx="10"/>
+        <text class="t" x="80" y="213">agent · buoy-pi</text><text class="s" x="80" y="235">linux-arm64 · systemd unit</text>
+        <rect class="box" x="60" y="286" width="230" height="74" rx="10"/>
+        <text class="t" x="80" y="316">agent · skiff</text><text class="s" x="80" y="338">laptop · stale is fine</text>
+        <path class="ln" d="M290 117 C 360 117, 360 205, 420 205"/>
+        <path class="ln" d="M290 220 L 420 220"/>
+        <path class="ln" d="M290 323 C 360 323, 360 235, 420 235"/>
+        <text class="s" x="300" y="180">push · 5 min</text>
+        <text class="s" x="300" y="272">websocket · wake</text>
+        <rect class="hub" x="420" y="140" width="250" height="160" rx="12"/>
+        <text class="t" x="440" y="172">hub · beacon</text>
+        <text class="s" x="440" y="196">ASP.NET minimal APIs</text>
+        <text class="s" x="440" y="216">WhoIs identity · roles</text>
+        <text class="s" x="440" y="236">diffs · events · recaps</text>
+        <text class="s" x="440" y="256">serves the React UI</text>
+        <text class="s" x="440" y="282">+ its own agent, in-process</text>
+        <rect class="box" x="455" y="340" width="180" height="56" rx="10"/>
+        <text class="t" x="475" y="366">PostgreSQL 18</text><text class="s" x="475" y="384">grate · SqlHydra</text>
+        <path class="ln" d="M545 300 L 545 340"/>
+        <rect class="box" x="760" y="100" width="190" height="70" rx="10"/>
+        <text class="t" x="780" y="130">browser</text><text class="s" x="780" y="152">desktop · phone · iPad</text>
+        <rect class="box" x="760" y="270" width="190" height="70" rx="10"/>
+        <text class="t" x="780" y="300">harbor-tray</text><text class="s" x="780" y="322">tether light · menu</text>
+        <path class="ln" d="M670 190 C 715 190, 715 135, 760 135"/>
+        <path class="ln dash" d="M670 260 C 715 260, 715 305, 760 305"/>
+        <text class="s" x="768" y="200">HTTPS via Serve</text>
+        <text class="s" x="684" y="350">loopback API</text>
+      </svg>
+    </div>
+    <div class="diagram-alt">
+      <pre>agent (each machine)
+  └─ push every 5 min ─▶ hub
+  └─ websocket (wake) ─▶ hub
+hub ─▶ PostgreSQL 18
+hub ─▶ browser (HTTPS via Tailscale Serve)
+tray ─▶ agent status + hub loopback API</pre>
+    </div>
+    <div class="scroll" style="margin-top:28px">
+      <table class="tbl">
+        <thead><tr><th>piece</th><th>what it is</th><th>runs on</th></tr></thead>
+        <tbody>
+          <tr><td>harbor-agent</td><td>Scans repos, services, resources, manifests; pushes to the hub; no web server or database code</td><td>every machine · linux-x64, linux-arm64, win-x64</td></tr>
+          <tr><td>harbor (hub)</td><td>Stores pushes, decides events and recaps, serves API and UI; modes <code>hub</code>, <code>both</code>, <code>agent</code>, <code>migrate</code></td><td>one stronger machine</td></tr>
+          <tr><td>harbor-tray</td><td>Avalonia tray: tether light, pairing, updates; runs the agent on Windows</td><td>desktops</td></tr>
+          <tr><td>PostgreSQL 18</td><td>Current projection, append-only events, manifests by content hash</td><td>next to the hub (podman quadlet)</td></tr>
+          <tr><td>Tailscale</td><td>Transport, machine identity (WhoIs StableID), user identity, HTTPS certificate</td><td>everywhere</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <span class="label">roadmap</span>
+    <h2>Where it's heading.</h2>
+    <p class="intro">Direction, not promises. Each item keeps harbor standalone and light, and each is a good place to get involved.</p>
+    <ul class="road">
+      <li><span class="state design">in design</span><div><h3>Peer hubs</h3>
+        <p>Two hubs, say a Linux box and a Windows PC, each with its own agent, exchanging live state with each other over the LAN or tailnet.
+          Live data stays in memory; only occasional snapshots are persisted. No single machine has to be "the" hub.</p></div></li>
+      <li><span class="state later">planned</span><div><h3>Context sync between workstations</h3>
+        <p>Pick up where you left off on another machine: which repos and branches you were in, and what's unpushed, handed over deliberately rather than discovered later.</p></div></li>
+      <li><span class="state later">planned</span><div><h3>Machine "essence" profiles</h3>
+        <p>A compact description of what a machine is for and what it should have: its role, expected services and toolchains. Drift is measured against it.</p></div></li>
+      <li><span class="state later">planned</span><div><h3>Issues and tasks sync</h3>
+        <p>A read cache of issues and PRs from GitHub or Gitea, with harbor's own notes keyed by forge references. The forge stays the source of truth.</p></div></li>
+      <li><span class="state later">planned</span><div><h3>Desktop view</h3>
+        <p>Optional desktop viewing through DisplayOverInternet's reusable runtime packages. harbor works fully without it; the tile stays off until it's ready.</p></div></li>
+      <li><span class="state later">open</span><div><h3>More collectors, smaller agents</h3>
+        <p>winget, Homebrew, npm -g, pipx and dotnet tools. A versioned JSON protocol so other agents can be written against it, possibly a tiny Rust reporter for Pi-class devices.</p></div></li>
+    </ul>
+  </div>
+</section>
+
+<section id="start" class="tight">
+  <div class="wrap">
+    <span class="label">get started</span>
+    <h2>Run it on your tailnet.</h2>
+    <p class="intro">You need .NET 10, bun, podman and Tailscale on the hub; just the agent binary and git on everything else.</p>
+<pre><span class="c"># on the hub</span>
+deploy/install-pg.sh
+deploy/install-hub.sh
+<span class="c"># on another machine, with a code from the hub's Pending tab</span>
+harbor-agent pair 7KQ4-M2XP --hub http://&lt;hub&gt;:7420</pre>
+    <div class="cta">
+      <a class="btn primary" href="install.html">Full install guide</a>
+      <a class="btn" href="contribute.html">Contributing</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>harbor · Apache-2.0</span>
+    <span><a href="https://github.com/SeanWilken/harbor">source</a> · <a href="install.html">install</a> · <a href="contribute.html">contribute</a> · <a href="https://github.com/SeanWilken/harbor/issues">issues</a></span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- harbor-tray: a tray icon showing whether this machine is tethered to its hub, with "Open harbor",
+       "Pair a device" (on the hub) and "Pair with hub" (on agents). Desktops only; it reads the
+       agent's status file and the hub's loopback API, and never runs the agent itself. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>harbor-tray</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Hub.fs" />
+    <Compile Include="Icons.fs" />
+    <Compile Include="Windows.fs" />
+    <Compile Include="Supervisor.fs" />
+    <Compile Include="Autostart.fs" />
+    <Compile Include="Update.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.23" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.23" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Harbor.Core/Harbor.Core.fsproj" />
+  </ItemGroup>
+</Project>

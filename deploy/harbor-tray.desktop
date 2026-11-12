@@ -1,0 +1,11 @@
+# Start harbor-tray at login (Linux desktops). Install:
+#   cp harbor-tray ~/.local/bin/ && cp harbor-tray.desktop ~/.config/autostart/
+[Desktop Entry]
+Type=Application
+Name=harbor tray
+Comment=Shows whether this machine is tethered to its harbor hub
+Exec=sh -c '"$HOME/.local/bin/harbor-tray"'
+Icon=network-server
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Terminal=false

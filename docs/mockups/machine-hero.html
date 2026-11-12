@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harbor mockup</title>
+<style>
+/* harbor theme: DisplayOverInternet's sage-on-black, in the corner guide's token shape */
+:root{
+  --page:#111616; --panel:#0b100f; --raise:#151c19; --line:#28322b; --line2:#364038;
+  --fg:#e9ede7; --dim1:#8f9c93; --dim2:#5f6d63;
+  --accent:#bed6a7; --accent-ink:#172017;
+  --ok:#b6c8a6; --warn:#e0c084; --danger:#e48a7a;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+  --sans:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--page);color:var(--fg);font:14px/1.5 var(--sans)}
+main{max-width:1280px;margin:0 auto;padding:24px 5vw 48px}
+button{font:inherit;color:inherit;cursor:pointer}
+.label{font:10px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim1)}
+.mono{font-family:var(--mono)}
+.dim{color:var(--dim1)} .dim2{color:var(--dim2)}
+
+/* header: brand · fleet counts · network + vpn · viewer */
+header{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;margin-bottom:28px}
+.brand{font:500 22px var(--sans);letter-spacing:.32em}
+.brand span{color:var(--accent)}
+.fleet{justify-self:center;font:11px var(--mono);color:var(--dim1)}
+.fleet b{color:var(--fg);font-weight:400}
+.fleet .pend{color:var(--warn)}
+.who{display:flex;align-items:center;gap:14px}
+.net{position:relative}
+.net select{appearance:none;background:transparent;color:var(--fg);border:1px solid var(--line2);border-radius:6px;font:12px var(--mono);padding:7px 28px 7px 10px}
+.net::after{content:"▾";position:absolute;right:10px;top:7px;color:var(--dim1);font-size:11px;pointer-events:none}
+.switch{display:flex;align-items:center;gap:8px;font:11px var(--mono);color:var(--dim1);background:none;border:0;padding:0}
+.switch i{width:30px;height:16px;border-radius:8px;background:var(--line2);position:relative;transition:background .2s}
+.switch i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--dim1);transition:left .2s}
+.switch.on i{background:#3d4d38} .switch.on i::after{left:16px;background:var(--accent)}
+.avatar{display:flex;align-items:center;gap:10px;font:12px var(--mono);color:var(--dim1)}
+.avatar span{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);display:grid;place-items:center;color:var(--fg);background:var(--raise);font-size:12px}
+
+/* machine tabs: this machine · network · favourites | pending */
+.mtabs{display:flex;align-items:flex-end;gap:2px;flex-wrap:wrap}
+.mtab{background:transparent;border:1px solid transparent;border-bottom:0;border-radius:9px 9px 0 0;padding:9px 16px;color:var(--dim1);font-size:13px;display:flex;gap:10px;align-items:center}
+.mtab:hover{color:var(--fg)}
+.mtab.on{background:var(--panel);border-color:var(--line2);color:var(--fg);position:relative;top:1px}
+.mtab .dot{width:6px;height:6px}
+.mtab small{font:10px var(--mono);color:var(--dim2)}
+.mtab.add{color:var(--dim2)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;padding:5px 10px;font:11px var(--mono);color:var(--dim2)}
+.seg button.on{background:var(--raise);color:var(--fg)}
+.seg button b{color:var(--warn);font-weight:400}
+
+/* the card: machine + its table, one surface */
+.card{position:relative;border:1px solid var(--line2);border-radius:0 14px 14px 14px;
+  background:radial-gradient(ellipse 60% 520px at 25% 0%,#18241d 0%,var(--panel) 75%);overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 3px)}
+.machine{display:grid;grid-template-columns:1.25fr 1fr;gap:32px;padding:24px 28px 28px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.conn{font:11px var(--mono);color:var(--ok)}
+.conn i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:7px;box-shadow:0 0 8px var(--ok)}
+h1{font:300 clamp(52px,8vw,108px)/1 var(--sans);letter-spacing:.06em;margin:22px 0 10px;text-shadow:0 0 28px #bed6a733}
+.status{display:flex;align-items:baseline;gap:12px;margin-bottom:24px}
+.status b{font-weight:400;font-size:17px}
+.meters{display:grid;grid-template-columns:repeat(3,minmax(0,120px));gap:22px 30px}
+.meter .num{font:200 38px/1 var(--sans);letter-spacing:-1px;margin-top:4px}
+.meter .num small{font-size:17px;color:var(--dim1)}
+.meter .num.sm{font-size:22px;letter-spacing:0;padding-top:12px}
+.meter .bar{height:2px;background:var(--line);margin-top:9px}
+.meter .bar span{display:block;height:100%;background:var(--fg)}
+.side{display:flex;flex-direction:column;gap:14px;padding-top:26px}
+.act{display:flex;align-items:center;gap:16px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:#0e1412;text-align:left;width:100%}
+.act:hover{border-color:var(--line2);background:var(--raise)}
+.act svg{flex:none;color:var(--accent)}
+.act strong{display:block;font-weight:400;font-size:16px}
+.act small{color:var(--dim1);font-size:12px}
+.act .go{margin-left:auto;color:var(--dim2);font-family:var(--mono)}
+.procs{border:1px solid var(--line);border-radius:10px;padding:12px 16px;background:#0e1412}
+.procs table{width:100%;border-collapse:collapse;font:12px var(--mono)}
+.procs td{padding:3px 0;color:var(--dim1)} .procs td:first-child{color:var(--fg)}
+.procs td.r{text-align:right}
+
+/* content tabs drive the table below, inside the same card */
+nav.ctabs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+nav.ctabs button{background:none;border:0;padding:15px 28px;text-align:left;color:var(--dim1);font-size:13px}
+nav.ctabs button+button{border-left:1px solid var(--line)}
+nav.ctabs button b{font:11px var(--mono);color:var(--dim2);margin-left:8px;font-weight:400}
+nav.ctabs button.on{background:var(--accent);color:var(--accent-ink)}
+nav.ctabs button.on b{color:#3d4d38}
+.tablebar{display:flex;justify-content:space-between;padding:14px 28px 4px}
+table.repos{width:100%;border-collapse:collapse}
+.repos th{font:10px var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);text-align:left;font-weight:400;padding:8px 12px}
+.repos th:first-child,.repos td:first-child{padding-left:28px}
+.repos th:last-child,.repos td:last-child{padding-right:28px}
+.repos th.sort{color:var(--dim1)}
+.repos td{padding:13px 12px;border-top:1px solid var(--line);vertical-align:baseline}
+tr.repo td:first-child{font-size:15px}
+.chev{color:var(--dim2);margin-right:10px;font-family:var(--mono)}
+tr.branch td{border-top:0;padding-top:4px;padding-bottom:4px;font:12px var(--mono);color:var(--dim1)}
+tr.branch td:first-child{padding-left:56px}
+.flag{font:11px var(--mono);color:var(--warn)}
+.r{text-align:right}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--ok)}
+.dot.stale{background:var(--warn)}
+footer{margin-top:40px;display:flex;justify-content:space-between}
+
+.mtabs .sep{width:1px;height:18px;background:var(--line2);margin:0 8px 10px}
+.pend{color:var(--warn)!important}
+.panelbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 28px}
+.quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;padding:4px 28px 28px}
+.mini{position:relative;border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#0e1412;cursor:pointer}
+.mini:hover{border-color:var(--line2);background:var(--raise)}
+.mini-top{display:flex;justify-content:space-between;align-items:baseline;font-size:11px}
+.mini h3{margin:2px 0 0;font:400 18px var(--sans);letter-spacing:.08em}
+.mini h3 small{font-size:10px;letter-spacing:0;margin-left:6px}
+.mini .row{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--dim1);margin-top:10px}
+.mini .row b{color:var(--fg);font-weight:400}
+.pin{position:absolute;right:30px;top:10px;background:none;border:0;color:var(--dim2);font-size:13px;padding:0}
+.pin.on{color:var(--accent)}
+.view[data-view=map]{padding:0 28px 24px}
+.map{width:100%;height:auto;display:block}
+.map .zone{fill:#0e1412;stroke:var(--line2)} .map .zone.dash{stroke-dasharray:4 5;fill:none}
+.map .zl{font:10px var(--mono);letter-spacing:1.5px;fill:var(--dim2)}
+.map .ll{font:11px var(--mono);fill:var(--dim1)}
+.map .link{stroke:var(--dim1);stroke-width:1.4;fill:none}
+.map .link.tail{stroke:var(--accent);stroke-dasharray:2 6;stroke-linecap:round}
+.map .link.pend{stroke:var(--warn);opacity:.6}
+.map .node circle{fill:var(--panel);stroke:var(--ok);stroke-width:1.4}
+.map .node.hub circle{stroke:var(--accent);stroke-width:2;filter:drop-shadow(0 0 10px #bed6a755)}
+.map .node.stale circle{stroke:var(--warn)} .map .node.pend circle{stroke:var(--warn);stroke-dasharray:3 4}
+.map .node text{font:12px var(--sans);letter-spacing:.08em;fill:var(--fg);text-anchor:middle}
+.map .node text.sub{font:10px var(--mono);letter-spacing:0;fill:var(--dim1)}
+.legend{display:flex;gap:22px;font-size:11px;color:var(--dim1);margin-top:10px}
+.legend .ln{display:inline-block;width:22px;height:0;border-top:1.5px solid var(--dim1);vertical-align:middle;margin-right:8px}
+.legend .ln.tail{border-top:2px dotted var(--accent)} .legend .ln.pend{border-top:1.5px dashed var(--warn)}
+.btn{background:transparent;border:1px solid var(--line2);border-radius:999px;padding:4px 12px;font:11px var(--mono);color:var(--dim1)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+@media(max-width:860px){
+  main{padding:16px 16px 40px}
+  header{grid-template-columns:1fr auto;gap:12px}
+  .brand{font-size:18px}
+  .fleet{grid-column:2;grid-row:1;justify-self:end}
+  .who{grid-column:1/-1;justify-content:space-between}
+  .mtab{white-space:nowrap}
+  .avatar b{display:none}
+  .machine{grid-template-columns:1fr;padding:18px 16px 20px;gap:20px}
+  .side{padding-top:0}
+  .meters{gap:18px 20px} .meter .num{font-size:32px}
+  nav.ctabs{grid-template-columns:repeat(2,1fr)}
+  nav.ctabs button{padding:13px 16px}
+  nav.ctabs button:nth-child(3){border-left:0}
+  nav.ctabs button:nth-child(n+3){border-top:1px solid var(--line)}
+  .tablebar{padding:12px 16px 4px}
+  .panelbar{padding:14px 16px;flex-wrap:wrap}
+  .quick{padding:4px 16px 20px}
+  .view[data-view=map]{padding:0 16px 20px}
+  .repos th:first-child,.repos td:first-child{padding-left:16px}
+  .repos th:last-child,.repos td:last-child{padding-right:16px}
+  tr.branch td:first-child{padding-left:42px}
+  .hide-sm{display:none}
+  .mtabs{flex-wrap:nowrap;overflow-x:auto}
+  .mtabs .sep{display:none}
+  .map{min-width:640px}
+  .mapwrap{overflow-x:auto}
+  .card{border-radius:0 0 14px 14px}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">HARB<span>⚓</span>R</div>
+    <div class="fleet"><b>4</b> machines · <span class="pend">1 pending</span></div>
+    <div class="who">
+      <label class="net"><select aria-label="selected network">
+        <option>tailnet</option><option>home network</option><option>office</option>
+      </select></label>
+      <button class="switch on" title="Tailscale on this machine (devbox)"><i></i>vpn</button>
+      <div class="avatar"><b>me</b><span>m</span></div>
+    </div>
+  </header>
+
+  <div class="mtabs">
+    <button class="mtab on" data-tab="this"><span class="dot"></span>This machine</button>
+    <button class="mtab" data-tab="network">Network <small>4</small></button>
+    <button class="mtab" data-tab="pending">Pending <small class="pend">1</small></button>
+    <span class="sep"></span>
+    <button class="mtab" data-tab="this"><span class="dot"></span>DESKTOP</button>
+    <button class="mtab" data-tab="this"><span class="dot stale"></span>LAPTOP</button>
+    <button class="mtab add" title="pin a machine as a tab">+</button>
+  </div>
+
+  <section class="card panel" id="network" hidden>
+    <div class="panelbar">
+      <span class="label dim2">4 machines · 2 online · 1 stale · 1 pending</span>
+      <div class="seg"><button class="on" data-view="grid">grid</button><button data-view="map">map</button></div>
+    </div>
+    <div class="quick view" data-view="grid">
+      <div class="mini">
+        <div class="mini-top"><span class="mono dim">zorin 18.1</span><span class="dot"></span></div>
+        <h3>DEVBOX <small class="dim2 mono">hub · you</small></h3>
+        <div class="row"><span>working</span><span>cpu <b>60</b> gpu <b>30</b> ram <b>45</b></span></div>
+        <div class="row"><span>apps <b>—</b></span><span>repos <b>26</b></span><span>doi <b>on</b></span></div>
+        <div class="row"><span>services <b>6</b></span><span>storage <b>3</b></span><span>ra <b>rdp</b></span></div>
+        <button class="pin on" title="pinned">★</button>
+      </div>
+      <div class="mini">
+        <div class="mini-top"><span class="mono dim">win 11</span><span class="dot"></span></div>
+        <h3>DESKTOP</h3>
+        <div class="row"><span>idle</span><span>cpu <b>4</b> gpu <b>0</b> ram <b>31</b></span></div>
+        <div class="row"><span>apps <b>—</b></span><span>repos <b>8</b></span><span>doi <b>off</b></span></div>
+        <div class="row"><span>services <b>3</b></span><span>storage <b>2</b></span><span>ra <b>rdp</b></span></div>
+        <button class="pin on" title="pinned">★</button>
+      </div>
+      <div class="mini">
+        <div class="mini-top"><span class="mono dim">win 11</span><span class="dot stale"></span></div>
+        <h3>LAPTOP</h3>
+        <div class="row"><span>seen 3h ago</span><span>cpu <b>–</b> gpu <b>–</b> ram <b>–</b></span></div>
+        <div class="row"><span>apps <b>—</b></span><span>repos <b>4</b></span><span>doi <b>–</b></span></div>
+        <div class="row"><span>services <b>0</b></span><span>storage <b>1</b></span><span>ra <b>–</b></span></div>
+        <button class="pin on" title="pinned">★</button>
+      </div>
+      <div class="mini">
+        <div class="mini-top"><span class="mono dim">ubuntu 24.04</span><span class="dot"></span></div>
+        <h3>DEVBOX</h3>
+        <div class="row"><span>idle</span><span>cpu <b>1</b> gpu <b>–</b> ram <b>12</b></span></div>
+        <div class="row"><span>apps <b>—</b></span><span>repos <b>3</b></span><span>doi <b>–</b></span></div>
+        <div class="row"><span>services <b>2</b></span><span>storage <b>1</b></span><span>ra <b>ssh</b></span></div>
+        <button class="pin" title="pin as a tab">☆</button>
+      </div>
+    </div>
+    <div class="view" data-view="map" hidden>
+      <div class="mapwrap"><svg class="map" viewBox="0 0 900 420" role="img" aria-label="network map">
+        <!-- networks as zones; tailnet is the backbone every agent reaches the hub over -->
+        <rect x="30" y="40" width="430" height="340" rx="14" class="zone"/>
+        <text x="50" y="68" class="zl">HOME NETWORK · 192.168.50.0/24</text>
+        <rect x="560" y="40" width="310" height="200" rx="14" class="zone"/>
+        <text x="580" y="68" class="zl">OFFICE</text>
+        <rect x="560" y="270" width="310" height="110" rx="14" class="zone dash"/>
+        <text x="580" y="298" class="zl">NOT SEEN ON A LAN</text>
+        <line x1="190" y1="200" x2="380" y2="300" class="link"/>
+        <path d="M190 200 C 400 120, 520 130, 700 150" class="link tail"/>
+        <path d="M190 200 C 400 260, 520 330, 700 335" class="link tail pend"/>
+        <line x1="190" y1="200" x2="370" y2="120" class="link"/>
+        <text x="455" y="150" class="ll">tailnet</text>
+        <g class="node hub" transform="translate(190 200)">
+          <circle r="44"/><text y="-2">DEVBOX</text><text y="16" class="sub">hub · 60%</text>
+        </g>
+        <g class="node" transform="translate(380 300)">
+          <circle r="34"/><text y="-2">DESKTOP</text><text y="14" class="sub">idle</text>
+        </g>
+        <g class="node" transform="translate(370 120)">
+          <circle r="34"/><text y="-2">DEVBOX</text><text y="14" class="sub">idle</text>
+        </g>
+        <g class="node stale" transform="translate(700 150)">
+          <circle r="34"/><text y="-2">LAPTOP</text><text y="14" class="sub">3h ago</text>
+        </g>
+        <g class="node pend" transform="translate(700 335)">
+          <circle r="30"/><text y="-2">PI-NAS</text><text y="14" class="sub">pending</text>
+        </g>
+      </svg></div>
+      <div class="legend mono"><span><i class="ln"></i>same LAN</span><span><i class="ln tail"></i>tailnet</span><span><i class="ln pend"></i>pending</span></div>
+    </div>
+  </section>
+
+  <section class="card panel" id="pending" hidden>
+    <div class="panelbar"><span class="label dim2">machines that pushed but are not approved yet</span></div>
+    <table class="repos">
+      <thead><tr><th>machine</th><th class="hide-sm">tailscale identity</th><th class="hide-sm">first push</th><th class="r">decision</th></tr></thead>
+      <tbody>
+        <tr><td>PI-NAS <span class="dim2 mono" style="font-size:11px">ubuntu 24.04</span></td><td class="dim hide-sm mono" style="font-size:12px">me@ · pi-nas.example</td><td class="dim hide-sm">4m ago</td>
+          <td class="r"><button class="btn primary">approve</button> <button class="btn">reject</button></td></tr>
+      </tbody>
+    </table>
+    <div style="height:18px"></div>
+  </section>
+
+  <section class="card panel" id="this">
+    <div class="machine">
+      <div>
+        <div class="top">
+          <span class="mono dim" style="font-size:12px">Zorin OS 18.1 <span class="dim2">· linux x64 · kernel 7.0</span></span>
+          <span class="conn"><i></i>online · 100.101.1.30</span>
+        </div>
+        <h1>DEVBOX</h1>
+        <div class="status"><span class="label">status</span><b>working</b><span class="dim2 mono" style="font-size:11px">input 40s ago · pushed 12s ago</span></div>
+        <div class="meters">
+          <div class="meter"><div class="label">cpu</div><div class="num">60<small>%</small></div><div class="bar"><span style="width:60%"></span></div></div>
+          <div class="meter"><div class="label">gpu</div><div class="num">30<small>%</small></div><div class="bar"><span style="width:30%"></span></div></div>
+          <div class="meter"><div class="label">ram</div><div class="num">45<small>%</small></div><div class="bar"><span style="width:45%"></span></div></div>
+          <div class="meter"><div class="label">disk /srv</div><div class="num">71<small>%</small></div><div class="bar"><span style="width:71%"></span></div></div>
+          <div class="meter"><div class="label">load</div><div class="num sm">2.4 <small>/ 20</small></div></div>
+          <div class="meter"><div class="label">up</div><div class="num sm">6d 4h</div></div>
+        </div>
+      </div>
+      <div class="side">
+        <button class="act">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 4l6.5 16 2.3-6.7L19.5 11z"/><path d="M13 13l6 6"/></svg>
+          <span><strong>Remote control</strong><small>RDP · desktop sharing ready</small></span><span class="go">↗</span>
+        </button>
+        <button class="act">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>
+          <span><strong>Desktop view</strong><small>Display over internet · 1 viewer</small></span><span class="go">↗</span>
+        </button>
+        <div class="procs">
+          <div class="label" style="margin-bottom:6px">top processes</div>
+          <table>
+            <tr><td>dotnet</td><td class="r">38%</td><td class="r">1.2G</td></tr>
+            <tr><td>gnome-shell</td><td class="r">9%</td><td class="r">610M</td></tr>
+            <tr><td>python3 (display)</td><td class="r">7%</td><td class="r">180M</td></tr>
+            <tr><td>postgres</td><td class="r">2%</td><td class="r">95M</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <nav class="ctabs">
+      <button class="on">Repos<b>26</b></button>
+      <button>Applications<b>—</b></button>
+      <button>Services<b>6</b></button>
+      <button>Storage<b>3</b></button>
+    </nav>
+    <div class="tablebar"><span class="label dim2">8 behind · 3 dirty</span><span class="label dim2">hidden 2 · filter /</span></div>
+    <table class="repos">
+      <thead><tr><th>repo</th><th class="hide-sm">owner / org</th><th class="hide-sm">last commit</th><th class="sort r">modified ▾</th></tr></thead>
+      <tbody>
+        <tr class="repo"><td><span class="chev">▾</span>harbor</td><td class="dim hide-sm">github · SeanWilken</td><td class="dim hide-sm">2h ago</td><td class="r">5m</td></tr>
+        <tr class="branch"><td>main <span class="dim2">· tracks origin/main</span></td><td class="hide-sm"></td><td class="hide-sm">2h ago</td><td class="r">›</td></tr>
+        <tr class="branch"><td>feat/hero-ui <span class="flag">↑3 dirty</span></td><td class="hide-sm"></td><td class="hide-sm">just now</td><td class="r">›</td></tr>
+        <tr class="repo"><td><span class="chev">›</span>DisplayOverInternet</td><td class="dim hide-sm">github · SeanWilken</td><td class="dim hide-sm">4d ago</td><td class="r">1h</td></tr>
+        <tr class="repo"><td><span class="chev">›</span>core <span class="flag">↓12</span></td><td class="dim hide-sm">gitea · myAI</td><td class="dim hide-sm">6d ago</td><td class="r">2d</td></tr>
+        <tr class="repo"><td><span class="chev">›</span>tomtom</td><td class="dim hide-sm">gitea · zn</td><td class="dim hide-sm">3w ago</td><td class="r">3w</td></tr>
+      </tbody>
+    </table>
+    <div style="height:18px"></div>
+  </section>
+
+  <footer><span class="label dim2">Mockup · data is illustrative</span><span class="label dim2">harbor</span></footer>
+</main>
+<script>
+const show=(id)=>{document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!==id)};
+document.querySelectorAll('.mtab[data-tab]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===b));show(b.dataset.tab)});
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.view').forEach(v=>v.hidden=v.dataset.view!==b.dataset.view)});
+const start=location.hash.slice(1).split('-');
+if(start[0]){document.querySelector(`.mtab[data-tab=${start[0]}]`)?.click();
+  if(start[1])document.querySelector(`.seg button[data-view=${start[1]}]`)?.click()}
+</script>
+</body>
+</html>

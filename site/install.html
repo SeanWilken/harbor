@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install harbor</title>
+<meta name="description" content="Install the harbor hub, pair machines, and add agents on Windows, Linux and Raspberry Pi.">
+<meta name="theme-color" content="#111616">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="anchor" viewBox="0 0 64 64">
+    <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M32 18 V54"/><path d="M14 38 Q14 54 32 54 Q50 54 50 38"/><path d="M22 28 H42"/>
+    </g>
+    <circle cx="32" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="5"/>
+    <circle cx="14" cy="36" r="5" fill="currentColor"/><circle cx="50" cy="36" r="5" fill="currentColor"/>
+  </symbol>
+</svg>
+
+<nav class="nav" aria-label="site">
+  <div class="wrap">
+    <a class="brand" href="./"><svg width="24" height="24"><use href="#anchor"/></svg><span>HARBOR</span></a>
+    <ul>
+      <li class="opt"><a href="./#features">features</a></li>
+      <li class="opt"><a href="./#roadmap">roadmap</a></li>
+      <li><a href="install.html" aria-current="page">install</a></li>
+      <li><a href="contribute.html">contribute</a></li>
+      <li><a class="gh" href="https://github.com/SeanWilken/harbor">github</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="hero" style="padding-bottom:64px">
+  <div class="wrap doc">
+    <span class="label">install</span>
+    <h2 style="font-size:clamp(36px,6vw,64px);font-weight:200;margin-top:14px">Quickstart</h2>
+    <p>Three roles: one <b>hub</b>, an <b>agent</b> on every machine, and the <b>tray</b> on desktops.
+      All traffic stays on your Tailscale tailnet, and agents only connect out.
+      There are no release binaries yet: you build from a checkout.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <thead><tr><th>machine</th><th>needs</th></tr></thead>
+        <tbody>
+          <tr><td>hub</td><td>.NET 10 SDK, bun, podman, git, Tailscale (Linux; systemd user services)</td></tr>
+          <tr><td>agent</td><td>git and Tailscale; the agent is one self-contained file (about 22 MB)</td></tr>
+          <tr><td>build machine</td><td>.NET 10 SDK, to publish agents for other platforms</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2><span class="step">01</span><br>Hub</h2>
+<pre>git clone https://github.com/SeanWilken/harbor && cd harbor
+cp harbor.example.json harbor.json   <span class="c"># set hub.admins, roots, services</span>
+deploy/install-pg.sh                 <span class="c"># once: PostgreSQL 18 in a podman quadlet</span>
+deploy/install-hub.sh                <span class="c"># hub + its own agent as a user service, tray at login</span></pre>
+    <p><code>install-hub.sh</code> builds the UI and the hub, installs them under <code>~/.local/share/harbor</code>,
+      copies your config to <code>~/.config/harbor/hub.json</code> (mode 600) and enables <code>harbor-hub</code>. Re-run it to update.
+      The UI is at <code>http://127.0.0.1:7420</code> and at the hub's tailnet name on the same port.</p>
+    <ul>
+      <li><code>loginctl enable-linger "$USER"</code> keeps the hub running while you're logged out.</li>
+      <li>HTTPS for phones and tablets (needed for a secure context): set <code>hub.serveListen</code> to <code>http://127.0.0.1:7425</code>, then
+        <code>sudo tailscale serve --bg --https=7443 http://127.0.0.1:7425</code>.</li>
+    </ul>
+    <p class="note">Never point Tailscale Serve or any proxy at port 7420: loopback there is trusted as admin.</p>
+
+    <h2><span class="step">02</span><br>Pair a machine</h2>
+    <p>On the hub: tray → <b>Pair a device…</b>, or the web UI → <b>Pending</b> → <b>pair a device</b>.
+      You get a one-time code (ten minutes, one use) and the hub address agents should use.
+      Without a code, a new machine waits as <b>pending</b> until you approve it.</p>
+
+    <h2><span class="step">03</span><br>Windows: tray and agent</h2>
+<pre>winget install Microsoft.DotNet.SDK.10 Git.Git
+<span class="c"># from a checkout, Tailscale logged in to the same tailnet</span>
+powershell -ExecutionPolicy Bypass -File deploy\install-windows.ps1 -Hub http://&lt;hub&gt;:7420 -Code ABCD-EFGH</pre>
+    <p>Builds <code>harbor-agent.exe</code> and <code>harbor-tray.exe</code> into <code>%LOCALAPPDATA%\harbor\bin</code>, writes a config with
+      whichever source folders exist (or pass <code>-Roots</code>), adds a Startup shortcut and starts the tray. The tray runs the agent hidden
+      and restarts it if it exits. When the hub knows newer harbor commits, the tray offers <b>Update harbor…</b>.</p>
+
+    <h2><span class="step">04</span><br>Linux and Raspberry Pi: agent</h2>
+<pre>dotnet publish src/Harbor.Agent -c Release -r linux-arm64 -o out   <span class="c"># linux-x64 for PCs</span>
+scp out/harbor-agent pi:~/.local/bin/
+<span class="c"># on the machine</span>
+harbor-agent pair ABCD-EFGH --hub http://&lt;hub&gt;:7420 --config ~/.config/harbor/harbor.json</pre>
+    <p>Edit <code>roots</code> in that config, install <code>deploy/harbor-agent.service</code> (a systemd user unit; steps inside) and
+      <code>loginctl enable-linger "$USER"</code> on a headless machine. On a Linux desktop, add the tray with <code>deploy/harbor-tray.desktop</code>.</p>
+
+    <h2><span class="step">05</span><br>Check it</h2>
+<pre>harbor-agent status     <span class="c"># tethered (exit 0), waiting (1), not (2)</span>
+harbor-agent snapshot   <span class="c"># what it would send, no hub needed</span>
+harbor-agent manifest   <span class="c"># OS, packages and repo locations</span></pre>
+
+    <h2>Configuration</h2>
+    <p>Every field is optional; <code>harbor.example.json</code> documents them. The ones you'll touch:</p>
+    <div class="scroll">
+      <table class="tbl">
+        <thead><tr><th>field</th><th>meaning</th></tr></thead>
+        <tbody>
+          <tr><td>machine</td><td>name on the hub (default: hostname)</td></tr>
+          <tr><td>roots, ignore, maxDepth</td><td>where to look for repos and what to skip</td></tr>
+          <tr><td>services</td><td>checks: <code>systemd</code>, <code>systemdUser</code>, <code>process</code>, <code>port</code>, <code>http</code>, <code>podman</code></td></tr>
+          <tr><td>agent.hub</td><td>the hub's tailnet address, never loopback</td></tr>
+          <tr><td>agent.allow</td><td>job kinds this machine will run (default <code>["fetch"]</code>)</td></tr>
+          <tr><td>hub.admins / hub.viewers</td><td>Tailscale logins; <code>"*"</code> as a viewer means anyone identified on the tailnet</td></tr>
+          <tr><td>hub.recap</td><td>weekday and the behind / dirty / neglected thresholds in days</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:28px">More detail lives in the repository: <a href="https://github.com/SeanWilken/harbor/blob/main/docs/INSTALL.md">docs/INSTALL.md</a>,
+      <a href="https://github.com/SeanWilken/harbor/blob/main/README.md">README.md</a> and
+      <a href="https://github.com/SeanWilken/harbor/blob/main/docs/OVERVIEW.md">docs/OVERVIEW.md</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>harbor · Apache-2.0</span>
+    <span><a href="https://github.com/SeanWilken/harbor">source</a> · <a href="./">home</a> · <a href="contribute.html">contribute</a> · <a href="https://github.com/SeanWilken/harbor/issues">issues</a></span>
+  </div>
+</footer>
+</body>
+</html>

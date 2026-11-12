@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <RunWorkingDirectory>$(MSBuildThisFileDirectory)../..</RunWorkingDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Migrations.fs" />
+    <Compile Include="Tailscale.fs" />
+    <Compile Include="Enrol.fs" />
+    <Compile Include="Pairing.fs" />
+    <Compile Include="Recap.fs" />
+    <Compile Include="Events.fs" />
+    <Compile Include="Redact.fs" />
+    <Compile Include="Storage.fs" />
+    <Compile Include="Hub.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="grate.postgresql" Version="2.2.0" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="SqlHydra.Query" Version="5.1.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Harbor.Core/Harbor.Core.fsproj" />
+    <ProjectReference Include="../Harbor.Db/Harbor.Db.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../db/**/*.sql" LinkBase="db" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

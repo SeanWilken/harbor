@@ -1,0 +1,20 @@
+# Hub database. Install: deploy/install-pg.sh (copies this to ~/.config/containers/systemd/).
+# Starts with your user session; `sudo loginctl enable-linger $USER` makes it start at boot.
+[Unit]
+Description=harbor hub PostgreSQL
+
+[Container]
+ContainerName=harbor-pg
+Image=docker.io/library/postgres:18-alpine
+# PG 18 images keep data under /var/lib/postgresql/<major>/docker
+Volume=harbor-pg:/var/lib/postgresql
+PublishPort=127.0.0.1:5432:5432
+Environment=POSTGRES_USER=harbor POSTGRES_DB=harbor
+Secret=harbor-pg-password,type=env,target=POSTGRES_PASSWORD
+HealthCmd=pg_isready -U harbor -d harbor
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

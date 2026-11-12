@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harbor icons</title>
+<style>
+  :root { --page:#111616; --panel:#0b100f; --line:#28322b; --fg:#e9ede7; --dim:#8f9c93; --ok:#bed6a7; --warn:#e0c084; --bad:#e48a7a; --off:#5f6d63; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--fg); font: 14px/1.5 Inter, system-ui, sans-serif; padding: 28px 16px; }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { font-weight: 400; font-size: 20px; margin: 0 0 4px; }
+  p { color: var(--dim); margin: 0 0 24px; }
+  .row { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; padding: 18px 0; border-top: 1px solid var(--line); }
+  .name { font: 12px ui-monospace, monospace; color: var(--dim); }
+  .name b { display: block; color: var(--fg); font: 400 15px Inter, system-ui, sans-serif; margin-bottom: 4px; }
+  .sizes { display: flex; gap: 22px; align-items: end; flex-wrap: wrap; }
+  .sizes figure { margin: 0; text-align: center; }
+  .sizes figcaption { font: 10px ui-monospace, monospace; color: var(--off); margin-top: 6px; }
+  .bar { background: #202020; border-radius: 6px; padding: 5px 10px; display: flex; gap: 12px; align-items: center; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Harbor tray icon concepts</h1>
+  <p>Anchor plus source control. Shown at tray sizes (16, 22, 32) and large, in the four tether colours, and on a dark top bar.</p>
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <!-- A: the shank is a commit line; ring and fluke tips are commits, one branch curves off -->
+      <symbol id="a" viewBox="0 0 64 64">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M32 18 V54" />
+          <path d="M14 38 Q14 54 32 54 Q50 54 50 38" />
+          <path d="M22 28 H42" />
+        </g>
+        <circle cx="32" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="5" />
+        <circle cx="14" cy="36" r="5" fill="currentColor" />
+        <circle cx="50" cy="36" r="5" fill="currentColor" />
+      </symbol>
+      <!-- B: git branch glyph shaped as an anchor: main line + merged branch, flukes as the curve -->
+      <symbol id="b" viewBox="0 0 64 64">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 16 V50" />
+          <path d="M44 22 Q44 36 24 40" />
+          <path d="M10 42 Q14 56 32 56 Q48 56 54 44" />
+        </g>
+        <circle cx="24" cy="11" r="6" fill="currentColor" />
+        <circle cx="44" cy="17" r="6" fill="none" stroke="currentColor" stroke-width="4.5" />
+      </symbol>
+      <!-- C: classic anchor, crossbar ends and ring are nodes of a small network -->
+      <symbol id="c" viewBox="0 0 64 64">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M32 17 V55" />
+          <path d="M12 40 Q14 55 32 55 Q50 55 52 40" />
+          <path d="M8 40 L12 34 L17 40" />
+          <path d="M47 40 L52 34 L56 40" />
+          <path d="M18 26 H46" />
+        </g>
+        <circle cx="32" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="4.5" />
+        <circle cx="16" cy="26" r="4.5" fill="currentColor" />
+        <circle cx="48" cy="26" r="4.5" fill="currentColor" />
+      </symbol>
+    </defs>
+  </svg>
+  <div id="rows"></div>
+</main>
+<script>
+const concepts = [
+  ["a", "A · commit anchor", "shank is a commit line; ring is HEAD, crossbar is the deck, fluke tips are commits"],
+  ["b", "B · branch anchor", "a git branch-and-merge glyph whose curve becomes the flukes"],
+  ["c", "C · networked anchor", "classic anchor, crossbar ends are nodes: machines on the tailnet"],
+];
+const tones = ["--ok", "--warn", "--bad", "--off"];
+const use = (id, size, tone) => `<svg width="${size}" height="${size}" style="color:var(${tone})"><use href="#${id}"/></svg>`;
+document.getElementById("rows").innerHTML = concepts.map(([id, name, note]) => `
+  <div class="row">
+    <div class="name"><b>${name}</b>${note}</div>
+    <div class="sizes">
+      ${[16, 22, 32].map((s) => `<figure>${use(id, s, "--ok")}<figcaption>${s}px</figcaption></figure>`).join("")}
+      <figure>${use(id, 96, "--ok")}<figcaption>96px</figcaption></figure>
+      <figure><div class="bar">${tones.map((t) => use(id, 22, t)).join("")}</div><figcaption>tether colours in a top bar</figcaption></figure>
+    </div>
+  </div>`).join("");
+</script>
+</body>
+</html>

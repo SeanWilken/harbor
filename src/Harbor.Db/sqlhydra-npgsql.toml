@@ -1,0 +1,17 @@
+# Regenerate with db/regen.sh after adding a migration (it passes the connection string).
+[general]
+connection = "Host=127.0.0.1;Port=5432;Database=harbor;Username=harbor"  # password comes from db/regen.sh
+output = "HarborDb.fs"
+namespace = "Harbor.HarborDb"
+cli_mutable = false
+
+[sqlhydra_query_integration]
+provider_db_type_attributes = true
+table_declarations = true
+
+[readers]
+reader_type = "Npgsql.NpgsqlDataReader"
+
+[filters]
+include = [ "public/*" ]
+exclude = [ ]

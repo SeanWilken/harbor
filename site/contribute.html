@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contribute to harbor</title>
+<meta name="description" content="How to build, test and contribute to harbor: F# on .NET 10, a React UI built with bun, and PostgreSQL.">
+<meta name="theme-color" content="#111616">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="anchor" viewBox="0 0 64 64">
+    <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M32 18 V54"/><path d="M14 38 Q14 54 32 54 Q50 54 50 38"/><path d="M22 28 H42"/>
+    </g>
+    <circle cx="32" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="5"/>
+    <circle cx="14" cy="36" r="5" fill="currentColor"/><circle cx="50" cy="36" r="5" fill="currentColor"/>
+  </symbol>
+</svg>
+
+<nav class="nav" aria-label="site">
+  <div class="wrap">
+    <a class="brand" href="./"><svg width="24" height="24"><use href="#anchor"/></svg><span>HARBOR</span></a>
+    <ul>
+      <li class="opt"><a href="./#features">features</a></li>
+      <li class="opt"><a href="./#roadmap">roadmap</a></li>
+      <li><a href="install.html">install</a></li>
+      <li><a href="contribute.html" aria-current="page">contribute</a></li>
+      <li><a class="gh" href="https://github.com/SeanWilken/harbor">github</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main class="hero" style="padding-bottom:64px">
+  <div class="wrap doc">
+    <span class="label">contribute</span>
+    <h2 style="font-size:clamp(36px,6vw,64px);font-weight:200;margin-top:14px">Build it with us</h2>
+    <p>harbor is a small codebase with a clear shape: F# on .NET 10 for the hub, agent and tray, a React UI built with bun,
+      and PostgreSQL behind the hub. If you like typed functional code, git internals or calm interfaces, there's something here for you.
+      The canonical guide is <a href="https://github.com/SeanWilken/harbor/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>; this page is the tour.</p>
+
+    <div class="cols" style="margin:28px 0">
+      <div class="tile"><span class="label">F# · .NET 10</span><p>Hub (ASP.NET minimal APIs), lean agent, Avalonia tray. Pure decision modules, I/O at the edges.</p></div>
+      <div class="tile"><span class="label">TypeScript · React</span><p>React 19 + Vite, built with bun. No UI framework; one stylesheet of theme tokens.</p></div>
+      <div class="tile"><span class="label">PostgreSQL 18</span><p>grate migrations, SqlHydra typed queries, an append-only event table.</p></div>
+    </div>
+
+    <h2>Run it locally</h2>
+<pre>dotnet build harbor.slnx
+dotnet test                              <span class="c"># tests/Harbor.Tests, xUnit</span>
+cp harbor.example.json harbor.json       <span class="c"># gitignored</span>
+(cd ui &amp;&amp; bun install &amp;&amp; bun run build)
+dotnet run --project src/Harbor          <span class="c"># hub + local agent on :7420</span>
+(cd ui &amp;&amp; bun run dev)                   <span class="c"># hot reload on :7421</span></pre>
+    <p>No hub handy? <code>harbor-agent snapshot</code> and <code>harbor-agent manifest</code> print exactly what an agent would send.</p>
+
+    <h2>Find your way around</h2>
+    <div class="scroll">
+      <table class="tbl">
+        <thead><tr><th>path</th><th>what lives there</th></tr></thead>
+        <tbody>
+          <tr><td>src/Harbor.Core</td><td>agent logic: <code>GitParse</code> (pure) ← <code>Git</code> ← <code>Discovery</code> ← <code>Inventory</code>; services, resources, manifests, the hub link</td></tr>
+          <tr><td>src/Harbor.Agent</td><td>the lean agent executable</td></tr>
+          <tr><td>src/Harbor</td><td>hub: <code>Hub</code> (guard + API), <code>Storage</code>, <code>Events</code>, <code>Recap</code>, <code>Enrol</code>, <code>Pairing</code>, <code>Redact</code>, <code>Tailscale</code></td></tr>
+          <tr><td>src/Harbor.Tray</td><td>Avalonia tray: tether light, supervisor, updates</td></tr>
+          <tr><td>db/up</td><td>migrations; add a new file, never edit an applied one, then <code>db/regen.sh</code></td></tr>
+          <tr><td>ui/src</td><td>React UI; theme tokens in <code>styles.css</code></td></tr>
+          <tr><td>tests/Harbor.Tests</td><td>parsers, event diff, enrolment, pairing, redaction, cleanup, security</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>How we write code</h2>
+    <ul>
+      <li><b>Match the file you're in.</b> Local consistency beats anyone's global preferences.</li>
+      <li><b>Small, composable functions.</b> Decisions are pure and tested; I/O is pushed to the edges.</li>
+      <li><b>Comments say why.</b> Most functions need none.</li>
+      <li><b>Strict types by default</b>, looser where it buys real composability (and say so).</li>
+      <li><b>Tests where they earn their place</b>: parsers, decisions, anything security-relevant.</li>
+      <li><b>Light by default.</b> New collection should be cheap, change-driven and redacted for viewers.</li>
+    </ul>
+
+    <h2>Good places to start</h2>
+    <div class="cols" style="margin-top:16px">
+      <div class="tile"><span class="label">collectors</span><p>winget, Homebrew, npm -g, pipx, dotnet tools. Each is a parser plus a test.</p></div>
+      <div class="tile"><span class="label">ui</span><p>Phone-width polish, long hostnames, accessibility passes over tables and dialogs.</p></div>
+      <div class="tile"><span class="label">protocol</span><p>A JSON schema and golden fixtures for the agent protocol, so other agents can be written against it.</p></div>
+      <div class="tile"><span class="label">redaction</span><p>Credential-shaped data in error text and job output is still to do.</p></div>
+    </div>
+    <p class="note">Roadmap items (peer hubs, context sync, essence profiles, issues/tasks sync, desktop view) are being designed now.
+      Open an issue before building on them so the work lines up.</p>
+
+    <h2>Pull requests</h2>
+    <p>One change per PR, a short description of what and why, and how you checked it (<code>dotnet test</code>, <code>bun run check</code>,
+      a screenshot for UI changes). Contributions are licensed under Apache-2.0.</p>
+    <div class="cta" style="margin-top:24px">
+      <a class="btn primary" href="https://github.com/SeanWilken/harbor/blob/main/CONTRIBUTING.md">Read CONTRIBUTING.md</a>
+      <a class="btn" href="https://github.com/SeanWilken/harbor/issues">Browse issues</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>harbor · Apache-2.0</span>
+    <span><a href="https://github.com/SeanWilken/harbor">source</a> · <a href="./">home</a> · <a href="install.html">install</a> · <a href="https://github.com/SeanWilken/harbor/issues">issues</a></span>
+  </div>
+</footer>
+</body>
+</html>

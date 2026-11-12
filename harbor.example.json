@@ -1,0 +1,33 @@
+// Copy to ./harbor.json or ~/.config/harbor/config.json. Every field is optional.
+{
+  "listen": "http://127.0.0.1:7420",
+  // Name on the hub (default: hostname). One Tailscale node can run several agents.
+  "machine": "devbox",
+  // agent / both: where to push. Over the tailnet (MagicDNS name or 100.x address), never loopback.
+  // allow: job kinds this machine runs when the hub asks (the hub can't ask for more).
+  "agent": { "hub": "http://devbox:7420", "pushSeconds": 60, "allow": ["fetch"] },
+  // hub / both: deploy/install-pg.sh prints the connection string.
+  "hub": {
+    "database": "Host=127.0.0.1;Port=5432;Database=harbor;Username=harbor;Password=...",
+    "admins": ["you@example.com"],   // Tailscale logins with full access (loopback always has it)
+    "viewers": [],                   // read-only, redacted logins; ["*"] = anyone identified on the tailnet
+    "tailnet": true,                 // also listen on this node's Tailscale addresses
+    "serveListen": "http://127.0.0.1:7425", // HTTPS front end: sudo tailscale serve --bg --https=7443 http://127.0.0.1:7425
+    "recap": { "weekday": "monday", "behindDays": 7, "dirtyDays": 7, "neglectedDays": 30 }
+    // "tailscaleSocket": "/var/snap/tailscale/common/socket/tailscaled.sock"  (found automatically)
+  },
+  "roots": ["~"],
+  "ignore": ["node_modules", ".cache", ".local", "snap", ".venv", "target", "bin", "obj", "dist"],
+  "skipHidden": true,      // don't descend into dot-folders below a root (~/.oh-my-zsh, ~/.codex, ...)
+  "maxDepth": 5,
+  "fetchMinutes": 60,      // git fetch every repo with a remote this often, so ahead/behind is current; 0 = off
+  "rescanSeconds": 300,
+  "services": [
+    { "name": "tailscale", "check": { "kind": "systemd", "unit": "tailscaled" } },
+    { "name": "editor", "check": { "kind": "systemdUser", "unit": "code-server" } },
+    { "name": "postgres", "check": { "kind": "port", "port": 5432 } },
+    { "name": "web app", "check": { "kind": "http", "url": "http://127.0.0.1:3000/" } },
+    { "name": "db container", "check": { "kind": "podman", "container": "pg" } },
+    { "name": "syncthing", "check": { "kind": "process", "name": "syncthing" } }
+  ]
+}
