@@ -46,7 +46,7 @@ type Store(cfg: Config) =
     let mutable nextScan = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
     let mutable machine =
         { Hostname = Environment.MachineName
-          Os = RuntimeInformation.OSDescription
+          Os = Manifest.description ()
           ScannedAt = DateTimeOffset.MinValue
           ScanMs = 0L
           Roots = [||] }
@@ -90,7 +90,8 @@ type Store(cfg: Config) =
                   Repos = repos
                   Services = services
                   Resources = Some resources
-                  Networks = Some networks }
+                  Networks = Some networks
+                  Access = (if cfg.Access.Length = 0 then None else Some cfg.Access) }
         }
 
     /// Fetch one repo (by path) or every fetchable repo, then rescan so ahead/behind reflects it.

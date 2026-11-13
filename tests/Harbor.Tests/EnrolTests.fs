@@ -68,3 +68,8 @@ let ``admins are loopback or listed logins, case-insensitively`` () =
     Assert.True(canAdmin [||] Local)
     Assert.True(canAdmin [| "ME@example.com" |] (Peer laptop))
     Assert.False(canAdmin [| "someone@else.org" |] (Peer laptop))
+
+[<Fact>]
+let ``the hub's MagicDNS name comes from the status Self entry`` () =
+    let body = """{ "Self": { "DNSName": "devbox.example.ts.net.", "TailscaleIPs": ["100.101.1.10"] } }"""
+    Assert.Equal(Some "devbox.example.ts.net", Harbor.Tailscale.parseSelfDnsName body)

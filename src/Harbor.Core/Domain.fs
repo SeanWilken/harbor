@@ -127,12 +127,23 @@ type NetInterface =
       /// Tells two networks with the same private subnet apart (home vs office 192.168.1.0/24).
       GatewayMac: string option }
 
+/// A way into this machine besides harbor, from its config: "display" (a desktop viewer page, e.g.
+/// DisplayOverInternet's receiver, which does its own device pairing) or "rdp" (a Remote Desktop host).
+/// Only addresses: never credentials.
+type AccessEntry =
+    { Kind: string
+      Name: string option
+      Url: string option
+      Host: string option
+      Port: int option }
+
 type Snapshot =
     { Machine: Machine
       Repos: Repo[]
       Services: ServiceStatus[]
       Resources: Resources option
-      Networks: NetInterface[] option }
+      Networks: NetInterface[] option
+      Access: AccessEntry[] option }
 
 type OsInfo =
     { Id: string // os-release ID ("zorin", "ubuntu") or "windows"

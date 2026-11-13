@@ -119,7 +119,14 @@ let private runHub argv (cfg: Config) (hub: HubConfig) (withAgent: bool) =
             let links = AgentLink.Registry()
             app.UseWebSockets() |> ignore
             let agentUrl = urls |> List.tryFind (fun u -> not (u.Contains "[")) |> Option.map (fun u -> u.TrimEnd '/')
-            Hub.mapApi app db links hub.Recap agentUrl
+            let browserUrl =
+                hub.BrowserUrl
+                |> Option.orElse (
+                    match ts, serve with
+                    | Some c, Some _ ->
+                        try c.SelfDnsName().GetAwaiter().GetResult() |> Option.map (fun d -> $"https://{d}:7443") with _ -> None
+                    | _ -> None)
+            Hub.mapApi app db links hub.Recap agentUrl browserUrl
             Hub.recapLoop db hub.Recap app.Lifetime.ApplicationStopping |> ignore
             Hub.pruneLoop db app.Lifetime.ApplicationStopping |> ignore
             db.JobQueued.Add(fun (nodeId, name) -> if nodeId <> "local" then links.Wake(nodeId, name, "job"))

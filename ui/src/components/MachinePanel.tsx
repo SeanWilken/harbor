@@ -2,6 +2,7 @@ import type { MachineSummary, Resources, Snapshot } from "../types";
 import { ago, bytes, duration } from "../format";
 import { activity, fullestDisk, isDirty, liveness, memPercent, oldestFetch, primaryAddress } from "../status";
 import { Pill } from "./Pill";
+import { AccessTiles } from "./AccessTiles";
 
 type Props = {
   summary: MachineSummary;
@@ -100,17 +101,6 @@ function TopProcesses({ r }: { r: Resources }) {
   );
 }
 
-const MouseIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
-    <path d="M4 4l6.5 16 2.3-6.7L19.5 11z" /><path d="M13 13l6 6" />
-  </svg>
-);
-const ScreenIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
-    <rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8M12 16v4" />
-  </svg>
-);
-
 /** The top of a machine's card: identity and connection, headline figures, access and actions. */
 export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fetchingAll, onScan, scanning }: Props) {
   const repos = snap.repos.filter((r) => !summary.hidden.includes(r.path));
@@ -152,12 +142,7 @@ export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fe
         {res ? <ResourceFigures r={res} /> : <RepoFigures repos={repos} up={up} total={snap.services.length} />}
       </div>
       <div className="side">
-        <div className="act off" title="RDP and other remote-control entries will come from harbor's own access catalog">
-          <MouseIcon /><span><strong>Remote control</strong><small>not configured</small></span>
-        </div>
-        <div className="act off" title="optional display support (DisplayOverInternet's runtime) is not installed in this harbor">
-          <ScreenIcon /><span><strong>Desktop view</strong><small>display support not installed</small></span>
-        </div>
+        <AccessTiles access={snap.access} />
         {res && <TopProcesses r={res} />}
         {(onFetchAll || onScan) && (
           <div className="actions">

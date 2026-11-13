@@ -76,6 +76,11 @@ let parseSelfAddresses (json: string) : IPAddress[] =
         | _ -> [||]
     | None -> [||]
 
+/// `GET /localapi/v0/status` body: this node's MagicDNS name, without the trailing dot.
+let parseSelfDnsName (json: string) : string option =
+    use doc = JsonDocument.Parse json
+    obj doc.RootElement "Self" |> Option.bind (fun s -> str s "DNSName") |> Option.map _.TrimEnd('.') |> Option.filter ((<>) "")
+
 type Client(socket: string) =
     let handler =
         new SocketsHttpHandler(
@@ -108,6 +113,12 @@ type Client(socket: string) =
                 r.EnsureSuccessStatusCode() |> ignore
                 let! body = r.Content.ReadAsStringAsync()
                 return parseWhoIs body
+        }
+
+    member _.SelfDnsName() : Task<string option> =
+        task {
+            let! body = http.GetStringAsync "/localapi/v0/status?peers=false"
+            return parseSelfDnsName body
         }
 
     member _.SelfAddresses() : Task<IPAddress[]> =

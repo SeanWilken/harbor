@@ -27,7 +27,8 @@ let private snap roots repos services =
       Repos = repos
       Services = services
       Resources = None
-      Networks = None }
+      Networks = None
+      Access = None }
 
 let private svc name state = { Name = name; Check = "port 1"; State = state; Detail = "" }
 

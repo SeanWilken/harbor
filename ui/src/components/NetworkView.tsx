@@ -16,6 +16,8 @@ type Props = {
   admin: boolean;
   view: NetView;
   pins: number[];
+  /** The browser's own machine: it is the "this machine" tab, so it can't be pinned. */
+  selfId?: number;
   now: number;
   onView: (v: NetView) => void;
   onOpen: (m: MachineSummary) => void;
@@ -23,7 +25,7 @@ type Props = {
 };
 
 /** Every machine at once: small cards, a map of how they connect, or repos cloned on several. */
-export function NetworkView({ machines, shared, admin, view, pins, now, onView, onOpen, onPin }: Props) {
+export function NetworkView({ machines, shared, admin, view, pins, selfId, now, onView, onOpen, onPin }: Props) {
   const shown = machines.filter((m) => m.status !== "rejected");
   const count = (k: string) => shown.filter((m) => liveness(m, now).key === k).length;
   const differ = shared.filter((g) => !g.sameHead).length;
@@ -44,7 +46,7 @@ export function NetworkView({ machines, shared, admin, view, pins, now, onView, 
       </div>
       {view === "grid" && (
         <div className="grid">
-          {shown.map((m) => <MiniCard key={m.id} m={m} now={now} pinned={pins.includes(m.id)} onOpen={() => onOpen(m)} onPin={() => onPin(m.id)} />)}
+          {shown.map((m) => <MiniCard key={m.id} m={m} now={now} pinned={pins.includes(m.id)} pinnable={m.id !== selfId} onOpen={() => onOpen(m)} onPin={() => onPin(m.id)} />)}
           {shown.length === 0 && <p className="empty">No machines have pushed yet.</p>}
         </div>
       )}
@@ -56,7 +58,7 @@ export function NetworkView({ machines, shared, admin, view, pins, now, onView, 
   );
 }
 
-function MiniCard({ m, now, pinned, onOpen, onPin }: { m: MachineSummary; now: number; pinned: boolean; onOpen: () => void; onPin: () => void }) {
+function MiniCard({ m, now, pinned, pinnable, onOpen, onPin }: { m: MachineSummary; now: number; pinned: boolean; pinnable: boolean; onOpen: () => void; onPin: () => void }) {
   const l = liveness(m, now);
   return (
     <div className={`mini ${l.key}`}>
@@ -68,7 +70,7 @@ function MiniCard({ m, now, pinned, onOpen, onPin }: { m: MachineSummary; now: n
         <span className="row"><span>repos <b>{m.repos}</b></span><span>dirty <b>{m.dirty}</b></span><span>sync <b>{m.unsynced}</b></span></span>
         <span className="row"><span>services <b>{m.servicesUp}/{m.servicesTotal}</b></span><span>apps <b>–</b></span><span>doi <b>–</b></span></span>
       </button>
-      {!m.local && m.status === "approved" && (
+      {pinnable && m.status === "approved" && (
         <button className={`pin ${pinned ? "on" : ""}`} onClick={onPin} title={pinned ? "unpin tab" : "pin as a tab"}>{pinned ? "★" : "☆"}</button>
       )}
     </div>

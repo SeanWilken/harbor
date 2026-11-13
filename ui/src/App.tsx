@@ -3,6 +3,7 @@ import type { JobInfo, MachineSummary, Me, Repo, SharedRepo, Snapshot } from "./
 import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestRefresh, rescan, setHidden, setStatus } from "./api";
 import { isDirty, isFetchable, withWorktrees } from "./status";
 import { Header } from "./components/Header";
+import { DevicesDialog } from "./components/DevicesDialog";
 import { parseHash, sameTab, tabHash, Tabs, type Tab } from "./components/Tabs";
 import { MachinePanel } from "./components/MachinePanel";
 import { NET_VIEWS, NetworkView, type NetView } from "./components/NetworkView";
@@ -36,6 +37,12 @@ const stored = (k: string, d: string) => { try { return localStorage.getItem(k) 
 const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 const storedPins = (): number[] => { try { return (JSON.parse(stored("harbor.pins", "[]")) as unknown[]).filter((x): x is number => typeof x === "number"); } catch { return []; } };
 
+function viewerMachine(machines: MachineSummary[] | null, me: Me | undefined) {
+  if (!machines) return undefined;
+  if (!me || me.self) return machines.find((m) => m.local);
+  return me.node ? machines.find((m) => m.nodeName === me.node && m.status === "approved") : undefined;
+}
+
 export function App() {
   const [machines, setMachines] = useState<MachineSummary[] | null>(null);
   const [me, setMe] = useState<Me>();
@@ -61,9 +68,11 @@ export function App() {
   const [sel, setSel] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobInfo[]>([]);
+  const [devices, setDevices] = useState(false);
   const search = useRef<HTMLInputElement>(null);
 
-  const local = machines?.find((m) => m.local);
+  // "This machine" is the one the browser runs on: the hub's own (same host) or an agent's, by Tailscale node.
+  const local = useMemo(() => viewerMachine(machines, me), [machines, me]);
   const current = useMemo(() =>
     tab.kind === "this" ? local : tab.kind === "machine" ? machines?.find((m) => m.id === tab.id) : undefined,
   [tab, machines, local]);
@@ -91,8 +100,10 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  // A hub without its own agent has no "this machine": show the network instead.
-  useEffect(() => { if (machines && tab.kind === "this" && !local) setTab({ kind: "network" }); }, [machines, tab, local]);
+  // A browser that isn't on a known machine (an iPad, say) has no "this machine": show the network instead.
+  useEffect(() => { if (machines && me && tab.kind === "this" && !local) setTab({ kind: "network" }); }, [machines, me, tab, local]);
+  // The viewer's own machine is the "this" tab, never a pinned or opened one.
+  useEffect(() => { if (local && tab.kind === "machine" && tab.id === local.id) setTab({ kind: "this" }); }, [local, tab]);
 
   useEffect(() => {
     const hash = tabHash(tab, tab.kind === "network" && netView !== "grid" ? netView : undefined);
@@ -156,11 +167,11 @@ export function App() {
   }, [jobs]);
 
   const go = useCallback((t: Tab) => { setTab(t); setSel(0); setOpen(null); }, []);
-  const openMachine = useCallback((m: MachineSummary) => go(m.local ? { kind: "this" } : { kind: "machine", id: m.id }), [go]);
+  const openMachine = useCallback((m: MachineSummary) => go(m.id === local?.id ? { kind: "this" } : { kind: "machine", id: m.id }), [go, local]);
   const togglePin = useCallback((id: number) => setPins((ps) => (ps.includes(id) ? ps.filter((p) => p !== id) : [...ps, id])), []);
   const allTabs = useMemo<Tab[]>(() => [
     ...(local ? [{ kind: "this" } as Tab] : []), { kind: "network" }, { kind: "pending" },
-    ...pins.filter((id) => machines?.some((m) => m.id === id && !m.local)).map((id): Tab => ({ kind: "machine", id })),
+    ...pins.filter((id) => id !== local?.id && machines?.some((m) => m.id === id)).map((id): Tab => ({ kind: "machine", id })),
   ], [local, pins, machines]);
   const cycle = useCallback((d: number) => {
     const i = allTabs.findIndex((t) => sameTab(t, tab));
@@ -236,14 +247,15 @@ export function App() {
 
   return (
     <main className="app">
-      <Header machines={machines ?? []} me={me} onPending={() => go({ kind: "pending" })} />
+      <Header machines={machines ?? []} me={me} onPending={() => go({ kind: "pending" })} onDevices={() => setDevices(true)} />
+      {devices && <DevicesDialog me={me} machines={machines ?? []} onClose={() => setDevices(false)} />}
       {err && <div className="banner" role="alert">⚠ {err}<button className="link" onClick={() => setErr(null)}>dismiss</button></div>}
       {!machines ? <p className="empty">loading…</p> : (
         <>
-          <Tabs tab={tab} machines={machines} pins={pins} now={now} onTab={go} />
+          <Tabs tab={tab} machines={machines} self={local} pins={pins} now={now} onTab={go} onPin={togglePin} onReorder={setPins} />
           <section className={`card view-${tab.kind}`}>
             {tab.kind === "network" && (
-              <NetworkView machines={machines} shared={shared} admin={admin} view={netView} pins={pins} now={now}
+              <NetworkView machines={machines} shared={shared} admin={admin} view={netView} pins={pins} selfId={local?.id} now={now}
                 onView={setNetView} onOpen={openMachine} onPin={togglePin} />
             )}
             {tab.kind === "pending" && <PendingView machines={machines} now={now} onOpen={openMachine} onDecide={admin ? (id, v) => void decide(id, v) : undefined} onPaired={() => void load()} agentUrl={me?.agentUrl} />}
@@ -251,7 +263,7 @@ export function App() {
             {current && snap && (
               <>
                 <MachinePanel summary={current} snap={snap} now={now}
-                  pinned={pins.includes(current.id)} onPin={current.local || current.status !== "approved" ? undefined : () => togglePin(current.id)}
+                  pinned={pins.includes(current.id)} onPin={current.id === local?.id || current.status !== "approved" ? undefined : () => togglePin(current.id)}
                   onFetchAll={approved ? () => void doFetch() : undefined} fetchingAll={openJobs.some((j) => j.kind === "fetch" && !j.path)}
                   onScan={canScan ? () => void doScan() : undefined} scanning={scanning} />
                 <nav className="ctabs" role="tablist" aria-label="machine content">

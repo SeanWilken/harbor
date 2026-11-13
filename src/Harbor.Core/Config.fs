@@ -44,6 +44,9 @@ type HubConfig =
       /// Loopback listener for a Tailscale Serve HTTPS front end, e.g. "http://127.0.0.1:7425".
       /// Requests there are identified by Serve's Tailscale-User-Login header. Off when unset.
       ServeListen: string option
+      /// The HTTPS address browsers (iPads) should open, shown as a QR in the UI. Defaults to
+      /// https://<this node's MagicDNS name>:7443 when serveListen is set.
+      BrowserUrl: string option
       Recap: RecapConfig
       /// tailscaled's LocalAPI socket; found automatically when unset.
       TailscaleSocket: string option }
@@ -63,6 +66,8 @@ type Config =
       /// Rebuild the installed-software manifest this often (it is sent only when it changed); 0 = never.
       ManifestHours: int
       Services: ServiceConfig[]
+      /// Desktop viewer pages and RDP hosts for this machine, shown on its card.
+      Access: Domain.AccessEntry[]
       Agent: AgentConfig option
       Hub: HubConfig option }
 
@@ -97,8 +102,22 @@ type private HubFile =
       Viewers: string[] option
       Tailnet: bool option
       ServeListen: string option
+      BrowserUrl: string option
       Recap: RecapFile option
       TailscaleSocket: string option }
+
+/// display entries need an http(s) URL, rdp entries a host; anything else is a config error.
+let checkAccess (a: Domain.AccessEntry) : Domain.AccessEntry =
+    let isWeb (u: string) =
+        match Uri.TryCreate(u, UriKind.Absolute) with
+        | true, NonNull uri -> uri.Scheme = "https" || uri.Scheme = "http"
+        | _ -> false
+    match a.Kind with
+    | "display" when a.Url |> Option.exists isWeb -> { a with Url = a.Url |> Option.map _.TrimEnd('/') }
+    | "display" -> failwith "access: a \"display\" entry needs an http(s) \"url\""
+    | "rdp" when a.Host |> Option.exists (String.IsNullOrWhiteSpace >> not) -> a
+    | "rdp" -> failwith "access: an \"rdp\" entry needs a \"host\""
+    | k -> failwith $"access: unknown kind '{k}' (display or rdp)"
 
 type private ConfigFile =
     { Listen: string option
@@ -111,6 +130,7 @@ type private ConfigFile =
       FetchMinutes: int option
       ManifestHours: int option
       Services: ServiceConfig[] option
+      Access: Domain.AccessEntry[] option
       Agent: AgentFile option
       Hub: HubFile option }
 
@@ -130,6 +150,7 @@ let defaults: Config =
       FetchMinutes = 1440
       ManifestHours = 24
       Services = [||]
+      Access = [||]
       Agent = None
       Hub = None }
 
@@ -182,6 +203,7 @@ let load (explicitPath: string option) : Result<Config * string option, string> 
                   FetchMinutes = pick f.FetchMinutes defaults.FetchMinutes
                   ManifestHours = pick f.ManifestHours defaults.ManifestHours
                   Services = pick f.Services defaults.Services
+                  Access = pick f.Access [||] |> Array.map checkAccess
                   Agent =
                     f.Agent
                     |> Option.map (fun a ->
@@ -196,6 +218,7 @@ let load (explicitPath: string option) : Result<Config * string option, string> 
                           Viewers = pick h.Viewers [||]
                           Tailnet = pick h.Tailnet true
                           ServeListen = h.ServeListen
+                          BrowserUrl = h.BrowserUrl |> Option.map (fun u -> u.TrimEnd '/')
                           Recap = recapOf h.Recap
                           TailscaleSocket = h.TailscaleSocket }) }
             Ok(c, Some path)

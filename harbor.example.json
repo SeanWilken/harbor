@@ -13,6 +13,7 @@
     "viewers": [],                   // read-only, redacted logins; ["*"] = anyone identified on the tailnet
     "tailnet": true,                 // also listen on this node's Tailscale addresses
     "serveListen": "http://127.0.0.1:7425", // HTTPS front end: sudo tailscale serve --bg --https=7443 http://127.0.0.1:7425
+    // "browserUrl": "https://devbox.example.ts.net:7443",  (the address iPads open; derived from serveListen when unset)
     "recap": { "weekday": "monday", "behindDays": 7, "dirtyDays": 7, "neglectedDays": 30 }
     // "tailscaleSocket": "/var/snap/tailscale/common/socket/tailscaled.sock"  (found automatically)
   },
@@ -29,5 +30,11 @@
     { "name": "web app", "check": { "kind": "http", "url": "http://127.0.0.1:3000/" } },
     { "name": "db container", "check": { "kind": "podman", "container": "pg" } },
     { "name": "syncthing", "check": { "kind": "process", "name": "syncthing" } }
+  ],
+  // Desktop view / Remote control on this machine's card: a desktop viewer page (it pairs devices
+  // itself) and an RDP host. Addresses only, never credentials.
+  "access": [
+    { "kind": "display", "url": "https://devbox.example.ts.net" },
+    { "kind": "rdp", "host": "devbox" }
   ]
 }

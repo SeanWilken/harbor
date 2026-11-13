@@ -88,3 +88,19 @@ let ``only changed or removed rows are rewritten`` () =
         Assert.Equal<(string * int) list>([ "b", 5; "d", 4 ], rows)
     | other -> failwith $"expected Changed, got {other}"
     Assert.Equal(Storage.Changed([], []), Storage.rowChanges (Some [| "a", 1 |]) [| "a", 1 |] key)
+
+[<Theory>]
+[<InlineData(26300, "Professional", "25H2", "Windows 11 Pro 25H2")>]
+[<InlineData(19045, "Core", "22H2", "Windows 10 Home 22H2")>]
+[<InlineData(22000, "", "", "Windows 11")>]
+let ``Windows is named by build, not by the 10.0 version it reports`` (build: int, edition: string, display: string, expected: string) =
+    Assert.Equal(expected, Manifest.windowsName build (Some edition) (Some display))
+
+[<Fact>]
+let ``access entries need an address of the right kind`` () =
+    let entry kind url host = { Kind = kind; Name = None; Url = url; Host = host; Port = None } : AccessEntry
+    Assert.Equal(Some "https://devbox.example.ts.net", (Config.checkAccess (entry "display" (Some "https://devbox.example.ts.net/") None)).Url)
+    Assert.Equal(Some "desktop-win", (Config.checkAccess (entry "rdp" None (Some "desktop-win"))).Host)
+    Assert.ThrowsAny<exn>(fun () -> Config.checkAccess (entry "display" (Some "file:///etc/passwd") None) |> ignore) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> Config.checkAccess (entry "rdp" None None) |> ignore) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> Config.checkAccess (entry "ssh" None (Some "h")) |> ignore) |> ignore

@@ -48,7 +48,8 @@ let ``viewers do not see processes, hardware addresses, emails, file names or ra
           Networks = Some [| { Name = "eth0"; Kind = "ethernet"; Mac = Some "aa:bb"; Gateway = Some "192.168.1.1"; GatewayMac = Some "cc:dd"
                                Addresses = [| { Address = "192.168.1.5"; PrefixLength = 24 } |] }
                              { Name = "tailscale0"; Kind = "tailnet"; Mac = None; Gateway = None; GatewayMac = None
-                               Addresses = [| { Address = "100.64.0.5"; PrefixLength = 32 } |] } |] }
+                               Addresses = [| { Address = "100.64.0.5"; PrefixLength = 32 } |] } |]
+          Access = None }
     let r = Redact.snapshot snap
     Assert.Empty(r.Resources.Value.Top)
     Assert.Equal(Some 5., r.Resources.Value.CpuPercent) // figures stay

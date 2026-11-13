@@ -210,7 +210,7 @@ let pruneLoop (db: Storage.Db) (stop: Threading.CancellationToken) : Task =
 
 let private wantsMarkdown (ctx: HttpContext) = ctx.Request.Query["format"].ToString() = "md"
 /// `agentUrl`: where agents should push (the hub's first tailnet IPv4 URL), shown when pairing.
-let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) =
+let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) (browserUrl: string option) =
     app.Map(AgentLink.path, RequestDelegate(fun ctx ->
         task {
             match caller ctx with
@@ -265,7 +265,9 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
         let who = caller ctx
         let login, node = match who with Local -> "local", None | Peer p -> p.Login, Some p.NodeName | Served l -> l, None
         let r = match roleOf ctx with Some Admin -> "admin" | Some Viewer -> "viewer" | None -> "none"
-        Results.Json {| login = login; node = node; role = r; admin = (r = "admin"); agentUrl = agentUrl |})) |> ignore
+        // a browser on the hub machine itself, whether over loopback or its own tailnet address
+        let self = who = Local || (ctx.Connection.RemoteIpAddress <> null && ctx.Connection.RemoteIpAddress = ctx.Connection.LocalIpAddress)
+        Results.Json {| login = login; node = node; self = self; role = r; admin = (r = "admin"); agentUrl = agentUrl; browserUrl = browserUrl |})) |> ignore
     app.MapGet("/api/shared",Func<Task<Storage.SharedRepo[]>>(fun () -> db.Shared())) |> ignore
 
     app.MapPost("/api/machines/{id}/jobs", Func<HttpContext, int64, JobBody, Task<IResult>>(fun ctx id body ->

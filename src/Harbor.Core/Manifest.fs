@@ -142,10 +142,38 @@ let private simple manager argv parse =
         | Some r -> return Some(set manager (r |> Result.map parse) [||])
     }
 
+/// Windows 11 still reports itself as 10.0; build 22000 and later is 11.
+/// EditionID "Professional" -> "Pro", "Core" -> "Home"; DisplayVersion is e.g. "24H2".
+let windowsName (build: int) (edition: string option) (displayVersion: string option) =
+    let ed =
+        match edition with
+        | Some "Professional" -> Some "Pro"
+        | Some "Core" -> Some "Home"
+        | Some e when e <> "" -> Some e
+        | _ -> None
+    [ Some(if build >= 22000 then "Windows 11" else "Windows 10"); ed; displayVersion |> Option.filter ((<>) "") ]
+    |> List.choose id
+    |> String.concat " "
+
+let private windowsDescription () =
+    let reg (name: string) =
+        if OperatingSystem.IsWindows() then
+            try
+                match Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", name, null) with
+                | :? string as s -> Some s
+                | _ -> None
+            with _ -> None
+        else None
+    windowsName Environment.OSVersion.Version.Build (reg "EditionID") (reg "DisplayVersion")
+
+/// The OS as people name it: os-release's PRETTY_NAME on Linux (what .NET reports), "Windows 11 Pro 24H2" on Windows.
+let description () =
+    if OperatingSystem.IsWindows() then windowsDescription () else RuntimeInformation.OSDescription
+
 let os () : OsInfo =
     let arch = (string RuntimeInformation.OSArchitecture).ToLowerInvariant()
     if OperatingSystem.IsWindows() then
-        { Id = "windows"; Version = string Environment.OSVersion.Version; PrettyName = RuntimeInformation.OSDescription
+        { Id = "windows"; Version = string Environment.OSVersion.Version; PrettyName = description ()
           Kernel = string Environment.OSVersion.Version; Arch = arch }
     else
         let rel = try parseOsRelease (File.ReadAllText "/etc/os-release") with _ -> Map.empty

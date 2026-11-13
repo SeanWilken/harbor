@@ -32,7 +32,9 @@ export type Resources = {
 };
 export type NetAddress = { address: string; prefixLength: number };
 export type NetInterface = { name: string; kind: "ethernet" | "wifi" | "tailnet" | "other"; mac?: string; addresses: NetAddress[]; gateway?: string; gatewayMac?: string };
-export type Snapshot = { machine: Machine; repos: Repo[]; services: ServiceStatus[]; resources?: Resources; networks?: NetInterface[] };
+/** A way in besides harbor (agent config `access`): a desktop viewer page or an RDP host. */
+export type AccessEntry = { kind: "display" | "rdp"; name?: string; url?: string; host?: string; port?: number };
+export type Snapshot = { machine: Machine; repos: Repo[]; services: ServiceStatus[]; resources?: Resources; networks?: NetInterface[]; access?: AccessEntry[] };
 
 // Hub API (src/Harbor/Storage.fs)
 export type MachineStatus = "pending" | "approved" | "rejected";
@@ -58,7 +60,7 @@ export type Copy = {
 };
 export type SharedRepo = { remoteKey: string; sameHead: boolean; copies: Copy[] };
 /** Who is looking at the UI: a tailnet login, or "local" on the hub itself. */
-export type Me = { login: string; node?: string; role: "admin" | "viewer"; admin: boolean; agentUrl?: string };
+export type Me = { login: string; node?: string; self?: boolean; browserUrl?: string; role: "admin" | "viewer"; admin: boolean; agentUrl?: string };
 
 // Manifests and recaps (src/Harbor/Manifest.fs, Recap.fs)
 export type OsInfo = { id: string; version: string; prettyName: string; kernel: string; arch: string };
