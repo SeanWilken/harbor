@@ -48,6 +48,21 @@ let backoff (failures: int) =
     let secs = min 300. (5. * Math.Pow(2., float (max 0 (failures - 1))))
     TimeSpan.FromSeconds(secs * (0.8 + Random.Shared.NextDouble() * 0.4))
 
+/// A pull job's (ok, output). One named repo that was skipped is a failed request: nothing happened.
+/// For "all", repos already up to date aren't listed.
+let pullResult (path: string option) (results: (string * Inventory.PullOutcome)[]) : bool * string =
+    let line (p, o) =
+        match o with
+        | Inventory.Pulled n -> $"{p}: pulled {n} commit(s)"
+        | Inventory.UpToDate -> $"{p}: up to date"
+        | Inventory.Skipped why -> $"{p}: skipped, {why}"
+        | Inventory.Failed e -> $"{p}: failed, {e}"
+    let failed = results |> Array.exists (fun (_, o) -> match o with Inventory.Failed _ -> true | _ -> false)
+    let skippedOne = path.IsSome && results |> Array.exists (fun (_, o) -> match o with Inventory.Skipped _ -> true | _ -> false)
+    let shown = if path.IsSome then results else results |> Array.filter (fun (_, o) -> o <> Inventory.UpToDate)
+    let summary = if shown.Length = 0 then "every repo was up to date" else String.Join("\n", shown |> Array.map line)
+    not failed && not skippedOne, summary
+
 /// Run one job if this machine allows its kind. Never throws: failures become a failed result.
 let runJob (store: Inventory.Store) (allow: string[]) (job: JobRequest) : Task<JobResult> =
     task {
@@ -64,6 +79,10 @@ let runJob (store: Inventory.Store) (allow: string[]) (job: JobRequest) : Task<J
                     | Ok failures ->
                         let lines = failures |> Array.map (fun (p, e) -> $"{p}: {e}")
                         return finish false (String.Join("\n", lines))
+                | "pull" ->
+                    match! store.Pull job.Path with
+                    | Error e -> return finish false e
+                    | Ok results -> return pullResult job.Path results ||> finish
                 | other -> return finish false $"unknown job kind '{other}'"
             with ex ->
                 return finish false ex.Message

@@ -24,6 +24,7 @@ export const rescan = () => post("/api/scan");
 export const fetchJobs = (id: number) => get<JobInfo[]>(`/api/machines/${id}/jobs`);
 /** Queue a `git fetch` on that machine: one repo, or all of them when path is omitted. */
 export const requestFetch = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "fetch", path });
+export const requestPull = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "pull", path });
 export const setHidden = (id: number, path: string, hidden: boolean) => post(`/api/machines/${id}/hidden`, { path, hidden });
 export const fetchMe = () => get<Me>("/api/me");
 export const fetchManifests = (machineId: number) => get<ManifestInfo[]>(`/api/machines/${machineId}/manifests`);

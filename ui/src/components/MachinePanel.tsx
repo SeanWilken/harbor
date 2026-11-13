@@ -13,6 +13,8 @@ type Props = {
   /** Absent when this machine can't take jobs (not approved). */
   onFetchAll?: () => void;
   fetchingAll: boolean;
+  onPullAll?: () => void;
+  pullingAll: boolean;
   /** Only the hub's own machine can be rescanned on demand. */
   onScan?: () => void;
   scanning: boolean;
@@ -102,7 +104,7 @@ function TopProcesses({ r }: { r: Resources }) {
 }
 
 /** The top of a machine's card: identity and connection, headline figures, access and actions. */
-export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fetchingAll, onScan, scanning }: Props) {
+export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fetchingAll, onPullAll, pullingAll, onScan, scanning }: Props) {
   const repos = snap.repos.filter((r) => !summary.hidden.includes(r.path));
   const up = snap.services.filter((s) => s.state === "running").length;
   const fetched = oldestFetch(repos);
@@ -149,6 +151,11 @@ export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fe
             {onFetchAll && (
               <Pill onClick={onFetchAll} on={fetchingAll} title="git fetch every repo with a remote on this machine (F)">
                 {fetchingAll ? "fetching…" : "fetch all"}
+              </Pill>
+            )}
+            {onPullAll && (
+              <Pill onClick={onPullAll} on={pullingAll} title="fetch, then fast-forward every clean repo with no unpushed commits (P)">
+                {pullingAll ? "pulling…" : "pull all"}
               </Pill>
             )}
             {onScan && <Pill onClick={onScan} on={scanning} title="rescan repos now (r)">{scanning ? "scanning…" : "rescan"}</Pill>}

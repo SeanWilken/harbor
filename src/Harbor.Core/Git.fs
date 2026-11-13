@@ -99,6 +99,15 @@ let recentCommits (repo: string) : Threading.Tasks.Task<LoggedCommit[]> =
         | Error _ -> return [||]
     }
 
+/// `git merge --ff-only @{upstream}`: moves the checked-out branch forward to its upstream, or
+/// fails without touching anything when that isn't a fast-forward (or would overwrite files).
+let fastForward (repo: string) : Threading.Tasks.Task<Result<unit, string>> =
+    task {
+        match! gitWith (TimeSpan.FromSeconds 60.) repo [ "merge"; "--ff-only"; "--quiet"; "@{upstream}" ] with
+        | Ok _ -> return Ok()
+        | Error e -> return Error(if e = "" then "git merge --ff-only failed" else e)
+    }
+
 /// `git fetch --all --prune`: updates remote-tracking refs only, never the working tree or branches.
 /// stdin is closed and prompts are off, so a remote needing credentials fails instead of hanging.
 let fetch (repo: string) : Threading.Tasks.Task<Result<unit, string>> =

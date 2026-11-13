@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobInfo, MachineSummary, Me, Repo, SharedRepo, Snapshot } from "./types";
-import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestRefresh, rescan, setHidden, setStatus } from "./api";
-import { isDirty, isFetchable, withWorktrees } from "./status";
+import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, rescan, setHidden, setStatus } from "./api";
+import { isDirty, isFetchable, pullBlocker, withWorktrees } from "./status";
 import { Header } from "./components/Header";
 import { DevicesDialog } from "./components/DevicesDialog";
 import { parseHash, sameTab, tabHash, Tabs, type Tab } from "./components/Tabs";
@@ -141,12 +141,20 @@ export function App() {
   const admin = me?.admin ?? false;
   const approved = current?.status === "approved" && admin;
   const hidden = current?.hidden ?? [];
-  const fetching = useCallback((path?: string) =>
-    openJobs.some((j) => j.kind === "fetch" && (j.path === undefined || j.path === path)), [openJobs]);
-  const doFetch = useCallback(async (path?: string) => {
+  const running = useCallback((kind: string, path?: string) =>
+    openJobs.some((j) => j.kind === kind && (j.path === undefined || j.path === path)), [openJobs]);
+  const fetching = useCallback((path?: string) => running("fetch", path), [running]);
+  const doJob = useCallback(async (request: (id: number, path?: string) => Promise<unknown>, path?: string) => {
     if (!current) return;
-    try { await requestFetch(current.id, path); await loadJobs(current.id); } catch (e) { setErr((e as Error).message); }
+    try { await request(current.id, path); await loadJobs(current.id); } catch (e) { setErr((e as Error).message); }
   }, [current, loadJobs]);
+  const doFetch = useCallback((path?: string) => doJob(requestFetch, path), [doJob]);
+  const doPull = useCallback((path?: string) => doJob(requestPull, path), [doJob]);
+  // Pull one repo on several machines at once (shared repos): only copies that can fast-forward.
+  const pullCopies = useCallback(async (copies: { machineId: number; path: string }[]) => {
+    try { await Promise.all(copies.map((c) => requestPull(c.machineId, c.path))); setTimeout(() => void load(), 4000); }
+    catch (e) { setErr((e as Error).message); }
+  }, [load]);
   const doHide = useCallback(async (path: string, hide: boolean) => {
     if (!current) return;
     try { await setHidden(current.id, path, hide); await load(); } catch (e) { setErr((e as Error).message); }
@@ -155,6 +163,8 @@ export function App() {
     fetch: approved ? (p) => void doFetch(p) : undefined,
     hide: approved ? (p, h) => void doHide(p, h) : undefined,
     fetching: (p) => fetching(p),
+    pull: approved ? (p) => void doPull(p) : undefined,
+    pulling: (p) => running("pull", p),
   };
   // Job failures surface once, as the banner.
   const lastFailed = jobs.find((j) => j.finishedAt && j.ok === false);
@@ -221,6 +231,8 @@ export function App() {
       else if (e.key === "r" && canScan) void doScan();
       else if (e.key === "f" && cur && approved && isFetchable(cur)) void doFetch(cur.path);
       else if (e.key === "F" && approved) void doFetch();
+      else if (e.key === "p" && cur && approved && !pullBlocker(cur)) void doPull(cur.path);
+      else if (e.key === "P" && approved) void doPull();
       else if (e.key === "h" || e.key === "ArrowLeft") cycle(-1);
       else if (e.key === "l" || e.key === "ArrowRight") cycle(1);
       else if (e.key === "Escape") { setOpen(null); setQuery(""); }
@@ -229,7 +241,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [repos, sel, showRepos, doScan, canScan, cycle, approved, doFetch]);
+  }, [repos, sel, showRepos, doScan, canScan, cycle, approved, doFetch, doPull]);
   useEffect(() => { document.querySelector(".repo.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
 
   const counts: Record<Filter, number> = useMemo(() => ({
@@ -256,7 +268,7 @@ export function App() {
           <section className={`card view-${tab.kind}`}>
             {tab.kind === "network" && (
               <NetworkView machines={machines} shared={shared} admin={admin} view={netView} pins={pins} selfId={local?.id} now={now}
-                onView={setNetView} onOpen={openMachine} onPin={togglePin} />
+                onView={setNetView} onOpen={openMachine} onPin={togglePin} onPullCopies={admin ? (cs) => void pullCopies(cs) : undefined} />
             )}
             {tab.kind === "pending" && <PendingView machines={machines} now={now} onOpen={openMachine} onDecide={admin ? (id, v) => void decide(id, v) : undefined} onPaired={() => void load()} agentUrl={me?.agentUrl} />}
             {current && !snap && <p className="empty">loading {current.name}…</p>}
@@ -265,6 +277,7 @@ export function App() {
                 <MachinePanel summary={current} snap={snap} now={now}
                   pinned={pins.includes(current.id)} onPin={current.id === local?.id || current.status !== "approved" ? undefined : () => togglePin(current.id)}
                   onFetchAll={approved ? () => void doFetch() : undefined} fetchingAll={openJobs.some((j) => j.kind === "fetch" && !j.path)}
+                  onPullAll={approved ? () => void doPull() : undefined} pullingAll={openJobs.some((j) => j.kind === "pull" && !j.path)}
                   onScan={canScan ? () => void doScan() : undefined} scanning={scanning} />
                 <nav className="ctabs" role="tablist" aria-label="machine content">
                   {CONTENT.map((c) => (
@@ -306,7 +319,7 @@ export function App() {
               </>
             )}
           </section>
-          <footer className="keys">j/k move · enter expand · h/l tabs · / filter{approved ? " · f fetch · F fetch all" : ""}{canScan ? " · r rescan" : ""} · esc clear</footer>
+          <footer className="keys">j/k move · enter expand · h/l tabs · / filter{approved ? " · f fetch · F fetch all · p pull · P pull all" : ""}{canScan ? " · r rescan" : ""} · esc clear</footer>
         </>
       )}
     </main>

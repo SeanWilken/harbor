@@ -22,10 +22,12 @@ type Props = {
   onView: (v: NetView) => void;
   onOpen: (m: MachineSummary) => void;
   onPin: (id: number) => void;
+  /** Admins: pull one shared repo on the machines whose copy can fast-forward. */
+  onPullCopies?: (copies: { machineId: number; path: string }[]) => void;
 };
 
 /** Every machine at once: small cards, a map of how they connect, or repos cloned on several. */
-export function NetworkView({ machines, shared, admin, view, pins, selfId, now, onView, onOpen, onPin }: Props) {
+export function NetworkView({ machines, shared, admin, view, pins, selfId, now, onView, onOpen, onPin, onPullCopies }: Props) {
   const shown = machines.filter((m) => m.status !== "rejected");
   const count = (k: string) => shown.filter((m) => liveness(m, now).key === k).length;
   const differ = shared.filter((g) => !g.sameHead).length;
@@ -51,7 +53,7 @@ export function NetworkView({ machines, shared, admin, view, pins, selfId, now, 
         </div>
       )}
       {view === "map" && <NetMap machines={shown} now={now} onOpen={onOpen} />}
-      {view === "repos" && <SharedView groups={shared} now={now} />}
+      {view === "repos" && <SharedView groups={shared} now={now} onPull={onPullCopies} />}
       {view === "compare" && <CompareView machines={machines} admin={admin} />}
       {view === "recap" && <RecapView now={now} />}
     </>

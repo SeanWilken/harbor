@@ -36,6 +36,43 @@ let scanRepos (cfg: Config) : Task<Scanned[]> =
 let fetchable (repos: Repo[]) =
     repos |> Array.filter (fun r -> r.Remotes.Length > 0 && r.WorktreeOf.IsNone) |> Array.map _.Path
 
+/// Why `pull` would leave this repo alone; None = it can fast-forward safely. Untracked files are
+/// fine: git refuses on its own if an incoming file would overwrite one.
+let pullBlocker (r: Repo) : string option =
+    match r.Error, r.Branch, r.Changes with
+    | Some e, _, _ -> Some e
+    | _, None, _ -> Some "no branch state"
+    | _, Some b, _ when b.Head.IsNone -> Some "detached HEAD"
+    | _, Some b, _ when b.Upstream.IsNone -> Some "no upstream branch"
+    | _, _, Some c when c.Staged + c.Unstaged + c.Conflicted > 0 -> Some "uncommitted changes"
+    | _, Some b, _ when b.Ahead > 0 && b.Behind > 0 -> Some $"diverged ({b.Ahead} local, {b.Behind} upstream commits)"
+    | _, Some b, _ when b.Ahead > 0 -> Some $"{b.Ahead} unpushed commit(s)"
+    | _ -> None
+
+/// What a pull did to one repo.
+type PullOutcome =
+    | Pulled of commits: int
+    | UpToDate
+    | Skipped of reason: string
+    | Failed of error: string
+
+/// Fetch, re-read the state, then fast-forward only if `pullBlocker` finds nothing in the way.
+let private pullOne (path: string) : Task<PullOutcome> =
+    task {
+        match! Git.fetch path with
+        | Error e -> return Failed $"fetch: {e}"
+        | Ok() ->
+            let! now = Git.scan path
+            let behind = now.Branch |> Option.map _.Behind |> Option.defaultValue 0
+            match pullBlocker now with
+            | Some why -> return Skipped why
+            | None when behind = 0 -> return UpToDate
+            | None ->
+                match! Git.fastForward path with
+                | Ok() -> return Pulled behind
+                | Error e -> return Failed e
+    }
+
 type Store(cfg: Config) =
     let gate = new SemaphoreSlim(1, 1)
     let fetchGate = new SemaphoreSlim(1, 1)
@@ -120,6 +157,33 @@ type Store(cfg: Config) =
                             | Error e -> fetchErrors.Add(p, e)
                     do! this.Rescan()
                     return Ok(results |> Array.choose (fun (p, r) -> match r with Error e -> Some(p, e) | Ok() -> None))
+                finally
+                    fetchGate.Release() |> ignore
+        }
+
+    /// Fetch, then fast-forward one repo (by path) or every repo with a remote, only where nothing local
+    /// would be lost: clean tree, on a branch with an upstream, no unpushed commits. Rescans after.
+    member this.Pull(path: string option) : Task<Result<(string * PullOutcome)[], string>> =
+        task {
+            let withRemote = scanned |> Array.filter (fun s -> s.Repo.Remotes.Length > 0) |> Array.map _.Repo.Path
+            let targets =
+                match path with
+                | None -> Ok withRemote
+                | Some p when Array.contains p withRemote -> Ok [| p |]
+                | Some p -> Error $"not a repo with a remote here: {p}"
+            match targets with
+            | Error e -> return Error e
+            | Ok targets ->
+                do! fetchGate.WaitAsync()
+                try
+                    let results = Array.zeroCreate targets.Length
+                    let opts = ParallelOptions(MaxDegreeOfParallelism = 4)
+                    do! Parallel.ForEachAsync(Array.indexed targets, opts, fun (i, p) _ ->
+                            ValueTask(task {
+                                let! outcome = pullOne p
+                                results[i] <- (p, outcome) }))
+                    do! this.Rescan()
+                    return Ok results
                 finally
                     fetchGate.Release() |> ignore
         }

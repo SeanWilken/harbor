@@ -134,8 +134,9 @@ type private ConfigFile =
       Agent: AgentFile option
       Hub: HubFile option }
 
-/// Fetch only touches remote-tracking refs, never the working tree, so it's on by default.
-let defaultAllow = [| "fetch" |]
+/// Both are on by default: fetch only touches remote-tracking refs, and pull only fast-forwards a
+/// clean branch with nothing unpushed, so neither can lose local work. Set agent.allow to narrow it.
+let defaultAllow = [| "fetch"; "pull" |]
 
 let private home = Environment.GetFolderPath Environment.SpecialFolder.UserProfile
 

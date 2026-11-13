@@ -129,7 +129,7 @@ type JobBody = { Kind: string; Path: string option }
 type HiddenBody = { Path: string; Hidden: bool }
 
 /// Must match the job.kind check in db/up.
-let knownJobs = [| "fetch" |]
+let knownJobs = [| "fetch"; "pull" |]
 
 let private problem code (msg: string) = Results.Json({| message = msg |}, statusCode = Nullable code)
 

@@ -1,6 +1,6 @@
 import type { Repo } from "../types";
 import { ago, owner, remoteHost, shortPath } from "../format";
-import { isFetchable, repoTags } from "../status";
+import { isFetchable, pullBlocker, repoTags } from "../status";
 import { Mark } from "./Mark";
 import { Pill } from "./Pill";
 
@@ -9,6 +9,8 @@ export type RepoActions = {
   fetch?: (path: string) => void;
   hide?: (path: string, hidden: boolean) => void;
   fetching: (path: string) => boolean;
+  pull?: (path: string) => void;
+  pulling: (path: string) => boolean;
 };
 
 type Props = {
@@ -26,6 +28,7 @@ export function RepoRow({ repo: r, now, selected, open, hidden, nested, actions,
           <span className="name"><span className="chev">{open ? "▾" : "›"}</span>{nested && <span className="dim2">└ </span>}{r.name}
             {tags.map((t) => <Mark key={t.label} tone={t.tone} title={t.title}>{t.label}</Mark>)}
             {actions.fetching(r.path) && <Mark tone="dim">fetching…</Mark>}
+            {actions.pulling(r.path) && <Mark tone="dim">pulling…</Mark>}
           </span>
           <small title={r.branch?.upstream ? `tracks ${r.branch.upstream}` : undefined}>
             {r.branch?.head ?? r.branch?.oid?.slice(0, 7) ?? "?"}{(r.branches?.length ?? 0) > 1 ? ` +${r.branches!.length - 1}` : ""}
@@ -84,6 +87,14 @@ function RepoDetail({ repo: r, now, hidden, actions }: { repo: Repo; now: number
             {actions.fetching(r.path) ? "fetching…" : "f fetch"}
           </Pill>
         )}
+        {actions.pull && r.remotes.length > 0 && (() => {
+          const why = pullBlocker(r);
+          return why
+            ? <span className="dim2" title="pull only fast-forwards a clean branch with no unpushed commits">can't pull: {why}</span>
+            : <Pill onClick={() => actions.pull!(r.path)} on={actions.pulling(r.path)} title="fetch, then fast-forward to upstream (p)">
+                {actions.pulling(r.path) ? "pulling…" : `p pull${(r.branch?.behind ?? 0) > 0 ? ` ↓${r.branch!.behind}` : ""}`}
+              </Pill>;
+        })()}
         {actions.hide && <Pill onClick={() => actions.hide!(r.path, !hidden)}>{hidden ? "unhide" : "hide"}</Pill>}
       </div>
     </div>

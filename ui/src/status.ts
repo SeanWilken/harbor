@@ -44,6 +44,20 @@ export function liveness(m: MachineSummary, now = Date.now()): Liveness {
 /** Can harbor fetch it: has a remote and isn't a worktree (worktrees share their main repo's refs). */
 export const isFetchable = (r: Repo) => r.remotes.length > 0 && !r.worktreeOf;
 
+/** Why the agent's pull would leave this repo alone (mirrors Inventory.pullBlocker); undefined = it can fast-forward. */
+export function pullBlocker(r: Repo): string | undefined {
+  const b = r.branch, c = r.changes;
+  if (r.remotes.length === 0) return "no remote";
+  if (r.error) return r.error;
+  if (!b) return "no branch state";
+  if (!b.head) return "detached HEAD";
+  if (!b.upstream) return "no upstream branch";
+  if (c && c.staged + c.unstaged + c.conflicted > 0) return "uncommitted changes";
+  if (b.ahead > 0 && b.behind > 0) return `diverged (${b.ahead} local, ${b.behind} upstream commits)`;
+  if (b.ahead > 0) return `${b.ahead} unpushed commit(s)`;
+  return undefined;
+}
+
 /** Keep the sorted order, but move each worktree right after its main repo when that is listed. */
 export function withWorktrees(sorted: Repo[]): Repo[] {
   const listed = new Set(sorted.map((r) => r.path));

@@ -25,7 +25,10 @@ function CopyRow({ c, mark, now }: { c: Copy; mark: boolean; now: number }) {
 }
 
 /** Repos cloned on two or more machines, matched by normalized remote URL. */
-export function SharedView({ groups, now }: { groups: SharedRepo[]; now: number }) {
+/** Copies the agents' pull would move forward: clean and nothing unpushed (behind is rechecked after their fetch). */
+const pullable = (copies: Copy[]) => copies.filter((c) => !c.dirty && c.ahead === 0);
+
+export function SharedView({ groups, now, onPull }: { groups: SharedRepo[]; now: number; onPull?: (copies: Copy[]) => void }) {
   return (
     <div className="shared">
       {groups.length === 0 && <p className="empty">No remote is cloned on more than one approved machine yet.</p>}
@@ -36,6 +39,12 @@ export function SharedView({ groups, now }: { groups: SharedRepo[]; now: number 
             <div className="group-head">
               <b>{g.remoteKey}</b>
               {g.sameHead ? <Mark tone="dim">same HEAD</Mark> : <Mark tone="warn">HEADs differ</Mark>}
+              {onPull && !g.sameHead && pullable(g.copies).length > 0 && (
+                <button className="link" onClick={() => onPull(pullable(g.copies))}
+                  title="on each machine whose copy is clean with nothing unpushed: fetch, then fast-forward to its upstream">
+                  pull {pullable(g.copies).length === g.copies.length ? "everywhere" : `${pullable(g.copies).length} of ${g.copies.length}`}
+                </button>
+              )}
             </div>
             <ul className="copies">
               {g.copies.map((c) => <CopyRow key={`${c.machineId}:${c.path}`} c={c} mark={c === top} now={now} />)}
