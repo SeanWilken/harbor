@@ -108,6 +108,23 @@ type Reporter(machine: string, hub: string, pushSeconds: int) =
     member _.Failed(error: string) = update (fun s -> { s with LastError = Some error })
     member _.Linked(up: bool) = update (fun s -> { s with Linked = up || hub = "local" })
 
+// ---- "sync now" from the tray: a request file the running agent picks up ----
+
+let syncPath (machine: string) = Path.Combine(directory (), $"sync-{safe machine}")
+
+let requestSync (machine: string) = writeAtomic (syncPath machine) (DateTimeOffset.Now.ToString "o")
+
+/// True once per request: the file is removed when taken.
+let takeSyncRequest (machine: string) =
+    let p = syncPath machine
+    try
+        if File.Exists p then
+            File.Delete p
+            true
+        else false
+    with _ ->
+        false
+
 // ---- pairing codes waiting to be sent ----
 
 /// Accepts "7kq4-m2xp", "7KQ4 M2XP" or "7KQ4M2XP".

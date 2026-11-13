@@ -1,9 +1,9 @@
 import type { MachineSummary, Me } from "../types";
 
-type Props = { machines: MachineSummary[]; me?: Me; onPending: () => void; onDevices: () => void };
+type Props = { machines: MachineSummary[]; me?: Me; onPending: () => void; onDevices: () => void; onSync: () => void; syncing: boolean };
 
 /** Brand, fleet counts and who is looking. Network choice and the VPN switch land here later. */
-export function Header({ machines, me, onPending, onDevices }: Props) {
+export function Header({ machines, me, onPending, onDevices, onSync, syncing }: Props) {
   const pending = machines.filter((m) => m.status === "pending").length;
   const known = machines.filter((m) => m.status === "approved").length;
   return (
@@ -12,6 +12,7 @@ export function Header({ machines, me, onPending, onDevices }: Props) {
       <div className="fleet">
         <b>{known}</b> {known === 1 ? "machine" : "machines"}
         {pending > 0 && <> · <button className="link pend" onClick={onPending}>{pending} pending</button></>}
+        {" · "}<button className="link" onClick={onSync} disabled={syncing} title="every linked machine rescans and reports now (S)">{syncing ? "syncing…" : "sync"}</button>
         {" · "}<button className="link" onClick={onDevices} title="QR codes for opening harbor and the desktop viewers on an iPad">on iPad</button>
       </div>
       {me && (

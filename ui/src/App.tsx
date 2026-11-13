@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobInfo, MachineSummary, Me, Repo, SharedRepo, Snapshot } from "./types";
-import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, rescan, setHidden, setStatus } from "./api";
+import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, rescan, syncAll, setHidden, setStatus } from "./api";
 import { isDirty, isFetchable, pullBlocker, withWorktrees } from "./status";
 import { Header } from "./components/Header";
 import { DevicesDialog } from "./components/DevicesDialog";
@@ -193,6 +193,16 @@ export function App() {
     try { await setStatus(id, verb); await load(); } catch (e) { setErr((e as Error).message); }
   }, [load]);
 
+  const [syncing, setSyncing] = useState(false);
+  const doSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await syncAll();
+      // agents rescan, then push; most answer within a few seconds
+      for (const ms of [2500, 6000]) { await new Promise((r) => setTimeout(r, ms)); await load(); }
+    } catch (e) { setErr((e as Error).message); } finally { setSyncing(false); }
+  }, [load]);
+
   const canScan = !!current?.local && admin;
   const doScan = useCallback(async () => {
     if (!canScan) return;
@@ -215,7 +225,7 @@ export function App() {
   useEffect(() => setSel((s) => Math.min(s, Math.max(0, repos.length - 1))), [repos.length]);
 
   const showRepos = !!current && content === "repos";
-  // Terminal-style keys: j/k move, enter/o expand, / search, h/l tabs, f/F fetch, r rescan, esc clears.
+  // Terminal-style keys: j/k move, enter/o expand, / search, h/l tabs, f/F fetch, r rescan, S sync all, esc clears.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) {
@@ -229,6 +239,7 @@ export function App() {
       else if ((e.key === "Enter" || e.key === "o") && cur) setOpen((o) => (o === cur.path ? null : cur.path));
       else if (e.key === "/" && showRepos) search.current?.focus();
       else if (e.key === "r" && canScan) void doScan();
+      else if (e.key === "S" && !syncing) void doSync();
       else if (e.key === "f" && cur && approved && isFetchable(cur)) void doFetch(cur.path);
       else if (e.key === "F" && approved) void doFetch();
       else if (e.key === "p" && cur && approved && !pullBlocker(cur)) void doPull(cur.path);
@@ -241,7 +252,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [repos, sel, showRepos, doScan, canScan, cycle, approved, doFetch, doPull]);
+  }, [repos, sel, showRepos, doScan, canScan, cycle, approved, doFetch, doPull, doSync, syncing]);
   useEffect(() => { document.querySelector(".repo.sel")?.scrollIntoView({ block: "nearest" }); }, [sel]);
 
   const counts: Record<Filter, number> = useMemo(() => ({
@@ -259,7 +270,7 @@ export function App() {
 
   return (
     <main className="app">
-      <Header machines={machines ?? []} me={me} onPending={() => go({ kind: "pending" })} onDevices={() => setDevices(true)} />
+      <Header machines={machines ?? []} me={me} onPending={() => go({ kind: "pending" })} onDevices={() => setDevices(true)} onSync={() => void doSync()} syncing={syncing} />
       {devices && <DevicesDialog me={me} machines={machines ?? []} onClose={() => setDevices(false)} />}
       {err && <div className="banner" role="alert">⚠ {err}<button className="link" onClick={() => setErr(null)}>dismiss</button></div>}
       {!machines ? <p className="empty">loading…</p> : (

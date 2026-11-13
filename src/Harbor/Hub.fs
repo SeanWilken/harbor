@@ -313,6 +313,26 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
                     return Results.Json({| sent = nodeId = "local" || links.IsConnected(nodeId, name) |}, statusCode = Nullable 202)
         })) |> ignore
 
+    // ---- sync: every linked machine rescans and pushes now (the UI's sync button, the tray's Sync now) ----
+    app.MapPost("/api/sync", Func<Task<IResult>>(fun () ->
+        task {
+            let now = DateTimeOffset.UtcNow
+            let! ms = db.Machines(fun (n, m) -> links.IsConnected(n, m))
+            let mutable woken = []
+            for m in ms |> Array.filter (fun m -> m.Status = "approved" && m.Connected) do
+                match! db.MachineKey m.Id with
+                | Some(nodeId, name) ->
+                    match lastRefresh.TryGetValue m.Id with
+                    | true, t when now - t < TimeSpan.FromSeconds 10. -> ()
+                    | _ ->
+                        lastRefresh[m.Id] <- now
+                        links.Wake(nodeId, name, "refresh")
+                    woken <- m.Name :: woken
+                | None -> ()
+            let offline = ms |> Array.filter (fun m -> m.Status = "approved" && not m.Connected) |> Array.map _.Name
+            return Results.Json({| syncing = List.rev woken; offline = offline |}, statusCode = Nullable 202)
+        })) |> ignore
+
     // ---- pairing: admins create one-time codes; agents present them with a push ----
     app.MapPost("/api/pairing", Func<HttpContext, Task<IResult>>(fun ctx ->
         task {

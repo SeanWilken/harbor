@@ -46,6 +46,17 @@ let private configChanged (path: string) (stop: CancellationToken) : Task =
                 | Error e -> eprintfn $"harbor-agent: {path} changed but doesn't load, keeping the running config: {e}"
     }
 
+/// The tray's "Sync now": rescan (a push follows the scan) whenever it leaves a request.
+let private syncRequests (machine: string) (store: Inventory.Store) (stop: CancellationToken) : Task =
+    task {
+        AgentStatus.takeSyncRequest machine |> ignore // one left from before this start is already served
+        while not stop.IsCancellationRequested do
+            do! Task.Delay(TimeSpan.FromSeconds 2., stop).ContinueWith(fun (_: Task) -> ())
+            if AgentStatus.takeSyncRequest machine then
+                eprintfn "harbor-agent: sync requested; rescanning"
+                do! store.Rescan()
+    }
+
 /// Until SIGTERM (systemd stop) or Ctrl+C, or until the config file changes (then exits to be restarted).
 let private runUntilStopped (cfg: Config.Config) (source: string option) (a: Config.AgentConfig) =
     use stop = new CancellationTokenSource()
@@ -55,6 +66,7 @@ let private runUntilStopped (cfg: Config.Config) (source: string option) (a: Con
     let waker = Agent.Waker()
     let store, reporter = Agent.start cfg waker (Agent.httpSink a.Hub) stop.Token
     AgentLink.run a.Hub cfg.Machine Agent.backoff (Agent.onWake store waker) reporter.Linked stop.Token |> ignore
+    syncRequests cfg.Machine store stop.Token |> ignore
     eprintfn $"harbor-agent '{cfg.Machine}': pushing to {a.Hub} every {a.PushSeconds}s"
     let changed = match source with Some p -> configChanged p stop.Token | None -> Task.Delay(Timeout.Infinite, stop.Token)
     try

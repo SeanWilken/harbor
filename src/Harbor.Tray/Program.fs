@@ -104,6 +104,11 @@ type App() =
                 | None, Some a -> Some a.Hub
                 | None, None -> None
             hubUrl |> Option.iter (fun u -> item "Open harbor" (fun () -> openUrl u))
+            // this machine's agent(s) at once, then every linked machine through the hub
+            if view.Agents.Length > 0 || hubUrl.IsSome then
+                item "Sync now" (fun () ->
+                    for a in view.Agents do if a.Hub <> "local" then AgentStatus.requestSync a.Machine
+                    hubUrl |> Option.iter (fun u -> Hub.sync u |> ignore))
             if view.Fleet.IsSome then item "Pair a device…" (fun () -> (Windows.pairDevice ()).Show())
             if view.Agents |> Array.exists (fun a -> a.Hub <> "local" && a.HubStatus <> "approved") || view.Agents.Length = 0 then
                 let hub = view.Agents |> Array.tryPick (fun a -> if a.Hub <> "local" then Some a.Hub else None)

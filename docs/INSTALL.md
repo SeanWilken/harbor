@@ -45,7 +45,9 @@ commits (from any machine's clone, including unpushed local ones), the machine c
 and the tray's **Update harbor…** item adds the count. The item is always there on Windows (the hub
 only learns of new commits when a machine with a clone rescans) and runs
 `deploy\update-windows.ps1`: `git pull --ff-only` in the checkout the installer ran from, then the
-installer again (config kept). **Restart agent** restarts the agent alone; **Quit** stops the tray
+installer again (config kept). **Sync now** (tray) and **sync** (web header, key `S`) make every
+linked machine rescan and report at once, so the hub knows of a fresh commit right away; the tray
+also syncs its own machine when the hub refuses it. **Restart agent** restarts the agent alone; **Quit** stops the tray
 and the agent. **Start at login** toggles the Startup shortcut.
 
 ## 4. Linux machines and the Raspberry Pi (agent only)

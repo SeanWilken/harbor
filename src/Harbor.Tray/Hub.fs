@@ -89,3 +89,14 @@ let agentUrl () : Task<string option> =
         with _ ->
             return None
     }
+
+/// Ask the hub at `hubUrl` to have every linked machine rescan and push now. Best effort: the hub
+/// may refuse a caller whose Tailscale login isn't a harbor viewer or admin.
+let sync (hubUrl: string) : Task<bool> =
+    task {
+        try
+            use! r = http.PostAsync($"{hubUrl.TrimEnd '/'}/api/sync", null)
+            return r.IsSuccessStatusCode
+        with _ ->
+            return false
+    }

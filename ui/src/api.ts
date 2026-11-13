@@ -21,6 +21,8 @@ export const fetchShared = () => get<SharedRepo[]>("/api/shared");
 export const setStatus = (id: number, verb: "approve" | "reject") => post(`/api/machines/${id}/${verb}`);
 /** Rescans the hub's own machine (mode `both`); remote agents rescan on their own timer. */
 export const rescan = () => post("/api/scan");
+/** Every linked machine rescans and pushes now. */
+export const syncAll = () => post("/api/sync");
 export const fetchJobs = (id: number) => get<JobInfo[]>(`/api/machines/${id}/jobs`);
 /** Queue a `git fetch` on that machine: one repo, or all of them when path is omitted. */
 export const requestFetch = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "fetch", path });
