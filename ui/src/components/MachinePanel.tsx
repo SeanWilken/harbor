@@ -144,7 +144,7 @@ export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fe
         {res ? <ResourceFigures r={res} /> : <RepoFigures repos={repos} up={up} total={snap.services.length} />}
       </div>
       <div className="side">
-        <AccessTiles access={snap.access} />
+        <AccessTiles machine={summary.name} access={snap.access} />
         {res && <TopProcesses r={res} />}
         {(onFetchAll || onScan) && (
           <div className="actions">

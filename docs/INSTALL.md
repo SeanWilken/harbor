@@ -80,8 +80,19 @@ Harbor and each machine's desktop viewer are separate Home Screen apps.
 ```
 
 `display` links to a desktop viewer page (e.g. DisplayOverInternet's receiver), which pairs each
-device itself with a one-time code from that machine; harbor never handles those codes or cookies.
-The same dialog shows a QR per viewer. `rdp` opens Windows App (Remote Desktop) with that host;
+device itself with a one-time code from that machine. The same dialog shows a QR per viewer.
+
+**One app for every machine.** The hub also serves each viewer at
+`https://<hub>.<tailnet>.ts.net:7443/display/<machine>/`, passing requests through with the path
+unchanged; media still goes straight between the iPad and the machine. The viewer must be mounted
+there (DisplayOverInternet: `"mount": { "path": "/display/<machine>", "origins": ["https://<hub>.<tailnet>.ts.net:7443"] }`
+in its `config/poc.json`). When it answers, Desktop view says "through harbor" and opens inside the
+harbor app, so the pairing lives in harbor's Home Screen app. The hub forwards only to a `display`
+URL on that machine's own tailnet name, never logs or keeps the viewer's cookie or pairing request,
+and treats a pairing made directly and one made through harbor as two separate devices.
+
+Agents pick up config edits by themselves: they check the file every few seconds and restart when it
+changes to something that loads. `rdp` opens Windows App (Remote Desktop) with that host;
 Windows asks for its own sign-in, and the PC needs Remote Desktop turned on (Windows Pro).
 
 ## What's not verified yet
@@ -90,3 +101,4 @@ Windows asks for its own sign-in, and the PC needs Remote Desktop turned on (Win
   Windows).
 - The tray icon on Raspberry Pi OS's panel.
 - The `rdp://` link on iPad's Windows App, and dragging tabs to reorder on iPad Safari.
+- The `/display/<machine>/` pass-through end to end (pairing and the signaling WebSocket) against a mounted viewer.

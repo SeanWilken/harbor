@@ -15,12 +15,14 @@
     <Compile Include="Redact.fs" />
     <Compile Include="Storage.fs" />
     <Compile Include="Hub.fs" />
+    <Compile Include="DisplayProxy.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="grate.postgresql" Version="2.2.0" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="SqlHydra.Query" Version="5.1.1" />
+    <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Harbor.Core/Harbor.Core.fsproj" />

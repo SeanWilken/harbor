@@ -9,6 +9,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.FileProviders
 open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.Logging
 open Harbor.Config
 
 type Mode =
@@ -60,6 +61,9 @@ let private builder (argv: string[]) (urls: string list) =
             o.SerializerOptions.Converters.Add c
         o.SerializerOptions.PropertyNamingPolicy <- Text.Json.JsonNamingPolicy.CamelCase)
     |> ignore
+    DisplayProxy.addServices b.Services
+    // forwarding logs carry request URLs; keep them to warnings and errors
+    b.Logging.AddFilter("Yarp", LogLevel.Warning) |> ignore
     b.WebHost.UseUrls(Array.ofList urls) |> ignore
     // a full push with a manifest is ~200 KB; nothing legitimate comes near this
     b.WebHost.ConfigureKestrel(fun o -> o.Limits.MaxRequestBodySize <- Nullable(4L * 1024L * 1024L)) |> ignore
@@ -119,14 +123,15 @@ let private runHub argv (cfg: Config) (hub: HubConfig) (withAgent: bool) =
             let links = AgentLink.Registry()
             app.UseWebSockets() |> ignore
             let agentUrl = urls |> List.tryFind (fun u -> not (u.Contains "[")) |> Option.map (fun u -> u.TrimEnd '/')
+            let selfDns =
+                match ts with
+                | Some c -> (try c.SelfDnsName().GetAwaiter().GetResult() with _ -> None)
+                | None -> None
             let browserUrl =
                 hub.BrowserUrl
-                |> Option.orElse (
-                    match ts, serve with
-                    | Some c, Some _ ->
-                        try c.SelfDnsName().GetAwaiter().GetResult() |> Option.map (fun d -> $"https://{d}:7443") with _ -> None
-                    | _ -> None)
+                |> Option.orElse (if serve.IsSome then selfDns |> Option.map (fun d -> $"https://{d}:7443") else None)
             Hub.mapApi app db links hub.Recap agentUrl browserUrl
+            DisplayProxy.map app (DisplayProxy.Resolver(db, selfDns))
             Hub.recapLoop db hub.Recap app.Lifetime.ApplicationStopping |> ignore
             Hub.pruneLoop db app.Lifetime.ApplicationStopping |> ignore
             db.JobQueued.Add(fun (nodeId, name) -> if nodeId <> "local" then links.Wake(nodeId, name, "job"))

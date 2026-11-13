@@ -74,7 +74,7 @@ export function DevicesDialog({ me, machines, onClose }: { me?: Me; machines: Ma
                 ))}
               </ul>
             )}
-          <p className="dim2">Each viewer pairs a device itself, once, with a one-time code from that machine; harbor never sees those codes or cookies. Add each viewer to the Home Screen too, so every machine is its own icon.</p>
+          <p className="dim2">Each viewer pairs a device itself, once, with a one-time code from that machine. When a viewer is mounted under harbor (Desktop view says \"through harbor\"), it opens inside the harbor app and pairs there; harbor carries that pairing but never reads or keeps it. Otherwise add the viewer to the Home Screen as its own icon.</p>
         </div>
       </div>
     </div>

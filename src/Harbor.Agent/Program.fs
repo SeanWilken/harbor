@@ -24,8 +24,30 @@ let private print (value: 'T) =
     let opts = JsonSerializerOptions(Config.jsonOptions, WriteIndented = true)
     printfn "%s" (JsonSerializer.Serialize(value, opts))
 
-/// Until SIGTERM (systemd stop) or Ctrl+C.
-let private runUntilStopped (cfg: Config.Config) (a: Config.AgentConfig) =
+/// Exit code for "config changed, start me again": the tray restarts the agent after any exit,
+/// systemd (Restart=on-failure) after a non-zero one.
+let private restartCode = 75
+
+/// Completes when the config file changes to text that still loads. Polls rather than using a file
+/// watcher: editors save by replacing the file, which watchers report inconsistently. An edit that
+/// doesn't load is reported once and ignored, so a half-saved file never stops a running agent.
+let private configChanged (path: string) (stop: CancellationToken) : Task =
+    let read () = try IO.File.ReadAllText path with _ -> ""
+    task {
+        let mutable seen = read ()
+        let mutable changed = false
+        while not changed && not stop.IsCancellationRequested do
+            do! Task.Delay(TimeSpan.FromSeconds 5., stop).ContinueWith(fun (_: Task) -> ())
+            let now = read ()
+            if now <> seen && now <> "" then
+                seen <- now
+                match Config.load (Some path) with
+                | Ok _ -> changed <- true
+                | Error e -> eprintfn $"harbor-agent: {path} changed but doesn't load, keeping the running config: {e}"
+    }
+
+/// Until SIGTERM (systemd stop) or Ctrl+C, or until the config file changes (then exits to be restarted).
+let private runUntilStopped (cfg: Config.Config) (source: string option) (a: Config.AgentConfig) =
     use stop = new CancellationTokenSource()
     let onSignal = Action<PosixSignalContext>(fun c -> c.Cancel <- true; stop.Cancel())
     use _term = PosixSignalRegistration.Create(PosixSignal.SIGTERM, onSignal)
@@ -34,12 +56,18 @@ let private runUntilStopped (cfg: Config.Config) (a: Config.AgentConfig) =
     let store, reporter = Agent.start cfg waker (Agent.httpSink a.Hub) stop.Token
     AgentLink.run a.Hub cfg.Machine Agent.backoff (Agent.onWake store waker) reporter.Linked stop.Token |> ignore
     eprintfn $"harbor-agent '{cfg.Machine}': pushing to {a.Hub} every {a.PushSeconds}s"
+    let changed = match source with Some p -> configChanged p stop.Token | None -> Task.Delay(Timeout.Infinite, stop.Token)
     try
-        Task.Delay(Timeout.Infinite, stop.Token).Wait()
+        Task.WhenAny(Task.Delay(Timeout.Infinite, stop.Token), changed).Wait()
     with _ ->
         ()
-    eprintfn "harbor-agent: stopped"
-    0
+    if changed.IsCompletedSuccessfully && not stop.IsCancellationRequested then
+        eprintfn "harbor-agent: config changed; exiting to restart with it"
+        stop.Cancel()
+        restartCode
+    else
+        eprintfn "harbor-agent: stopped"
+        0
 
 /// Human-readable tether state from the status file(s); the exit code suits scripts and login banners.
 let private status (cfg: Config.Config) =
@@ -97,9 +125,9 @@ let main argv =
     | _, Error e ->
         eprintfn $"{e}"
         2
-    | "run", Ok(cfg, _) ->
+    | "run", Ok(cfg, source) ->
         match cfg.Agent with
-        | Some a -> runUntilStopped cfg a
+        | Some a -> runUntilStopped cfg (source |> Option.map IO.Path.GetFullPath) a
         | None ->
             eprintfn "harbor-agent needs `agent.hub` in its config, e.g. \"agent\": { \"hub\": \"http://devbox:7420\" }"
             2

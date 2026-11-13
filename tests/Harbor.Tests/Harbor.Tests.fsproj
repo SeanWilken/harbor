@@ -15,6 +15,7 @@
     <Compile Include="ManifestTests.fs" />
     <Compile Include="PairingTests.fs" />
     <Compile Include="PullTests.fs" />
+    <Compile Include="DisplayProxyTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -33,10 +33,28 @@ function useReachable(url?: string) {
   return state;
 }
 
-function Tile({ href, icon, title, detail, hint, off }: { href?: string; icon: React.ReactNode; title: string; detail: string; hint: string; off?: boolean }) {
+/** The viewer under harbor's own address (/display/<machine>/), when this page is on HTTPS and the
+ *  viewer answers there (it has a mount for this machine). One Home Screen app then reaches every
+ *  machine; the viewer still pairs each device itself. */
+function useMount(machine: string, display?: AccessEntry) {
+  const [mount, setMount] = useState<string>();
+  useEffect(() => {
+    setMount(undefined);
+    if (!display?.url || location.protocol !== "https:" || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(machine)) return;
+    let live = true;
+    const path = `/display/${machine}/`;
+    fetch(`${path}api/session`, { credentials: "same-origin", cache: "no-store" })
+      .then((r) => live && (r.status === 200 || r.status === 401) && (r.headers.get("content-type") ?? "").includes("json") && setMount(path), () => {});
+    return () => { live = false; };
+  }, [machine, display?.url]);
+  return mount;
+}
+
+/** `here`: open in this window. A Home Screen app sends new-tab links to Safari, which has its own cookies. */
+function Tile({ href, icon, title, detail, hint, off, here }: { href?: string; icon: React.ReactNode; title: string; detail: string; hint: string; off?: boolean; here?: boolean }) {
   const body = <>{icon}<span><strong>{title}</strong><small>{detail}</small></span></>;
   return href && !off
-    ? <a className="act" href={href} target="_blank" rel="noopener noreferrer" title={hint}>{body}</a>
+    ? <a className="act" href={href} target={here ? undefined : "_blank"} rel="noopener noreferrer" title={hint}>{body}</a>
     : <div className="act off" title={hint}>{body}</div>;
 }
 
@@ -45,18 +63,20 @@ const howTo = (kind: string) => kind === "display"
   : 'add to this machine\'s harbor config: "access": [{ "kind": "rdp", "host": "<machine>" }]';
 
 /** Desktop view (a display viewer page that pairs devices itself) and Remote control (RDP), from the machine's config. */
-export function AccessTiles({ access }: { access?: AccessEntry[] }) {
+export function AccessTiles({ machine, access }: { machine: string; access?: AccessEntry[] }) {
   const display = access?.find((a) => a.kind === "display");
   const rdp = access?.find((a) => a.kind === "rdp");
-  const reach = useReachable(display?.url);
+  const mount = useMount(machine, display);
+  const reach = useReachable(mount ? undefined : display?.url);
   const displayDetail = !display?.url ? "not configured"
+    : mount ? "through harbor"
     : `${hostOf(display.url)}${reach === "down" ? " · no answer" : reach === "checking" ? " · checking" : ""}`;
   return (
     <>
       <Tile href={rdp?.host ? rdpLink(rdp.host, rdp.port) : undefined} icon={<MouseIcon />} title={rdp?.name ?? "Remote control"}
         detail={rdp?.host ? `RDP ${rdp.host}${rdp.port && rdp.port !== 3389 ? `:${rdp.port}` : ""}` : "not configured"}
         hint={rdp?.host ? "opens Windows App (Remote Desktop); it asks for the Windows sign-in itself" : howTo("rdp")} />
-      <Tile href={display?.url} icon={<ScreenIcon />} title={display?.name ?? "Desktop view"} detail={displayDetail}
+      <Tile href={mount ?? display?.url} here={!!mount} icon={<ScreenIcon />} title={display?.name ?? "Desktop view"} detail={displayDetail}
         hint={display?.url ? "opens this machine\'s display viewer; each device pairs there once with a code from that machine" : howTo("display")} />
     </>
   );

@@ -34,19 +34,22 @@ type Agent(exe: string, config: string option) =
 
     member _.Log = log
 
-    /// Keep the agent running until Stop; back off 10 s between restarts.
+    /// Keep the agent running until Stop; back off 10 s between restarts (1 s after a config change).
     member _.Run() : Task =
         task {
             while not stop.IsCancellationRequested do
+                let mutable wait = 10.
                 try
                     let p = start ()
                     do! p.WaitForExitAsync stop.Token
-                    eprintfn $"harbor-agent exited ({p.ExitCode}); restarting in 10 s"
+                    // 75: the agent saw its config change and wants a quick restart
+                    if p.ExitCode = 75 then wait <- 1.
+                    eprintfn $"harbor-agent exited ({p.ExitCode}); restarting in {wait} s"
                 with
                 | :? OperationCanceledException -> ()
                 | ex -> eprintfn $"harbor-agent: {ex.Message}"
                 try
-                    do! Task.Delay(TimeSpan.FromSeconds 10., stop.Token)
+                    do! Task.Delay(TimeSpan.FromSeconds wait, stop.Token)
                 with :? OperationCanceledException ->
                     ()
         }
