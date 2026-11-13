@@ -109,10 +109,14 @@ type App() =
                 let hub = view.Agents |> Array.tryPick (fun a -> if a.Hub <> "local" then Some a.Hub else None)
                 item "Pair with hub…" (fun () -> (Windows.pairWithHub (machineName view) hub).Show())
             menu.Items.Add(NativeMenuItemSeparator())
-            match newer, Update.script () with
-            | Some _, Some script -> item "Update harbor…" (fun () -> Update.run script)
-            | _ -> ()
-            agent |> Option.iter (fun a -> item "Agent log" (fun () -> openUrl a.Log))
+            // always offered: the script pulls from the checkout's remote, which may be ahead of
+            // what the hub has seen
+            Update.script () |> Option.iter (fun script ->
+                let label = match newer with Some u -> $"Update harbor… ({u.Behind} newer)" | None -> "Update harbor…"
+                item label (fun () -> Update.run script))
+            agent |> Option.iter (fun a ->
+                item "Restart agent" a.Restart
+                item "Agent log" (fun () -> openUrl a.Log))
             let login = NativeMenuItem("Start at login", ToggleType = NativeMenuItemToggleType.CheckBox, IsChecked = Autostart.isEnabled ())
             login.Click.Add(fun _ ->
                 try
@@ -121,7 +125,7 @@ type App() =
                     eprintfn $"start at login: {ex.Message}"
                 login.IsChecked <- Autostart.isEnabled ())
             menu.Items.Add login
-            item "Quit tray" (fun () ->
+            item (if agent.IsSome then "Quit (stops the agent)" else "Quit tray") (fun () ->
                 agent |> Option.iter _.Stop()
                 match this.ApplicationLifetime with
                 | :? IClassicDesktopStyleApplicationLifetime as l -> l.Shutdown()

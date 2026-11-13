@@ -5,7 +5,7 @@
 # Needs: .NET 10 SDK (to build), git (the agent shells out to it), Tailscale (logged in to the same
 # tailnet as the hub). Installs into %LOCALAPPDATA%\harbor\bin, writes %USERPROFILE%\.config\harbor\config.json
 # (kept if it exists), adds a Startup shortcut that runs the tray, which runs the agent hidden, then starts it.
-# Re-run to update (or tray -> "Update harbor...", which runs deploy\update-windows.ps1). Uninstall: delete the Startup shortcut "harbor", %LOCALAPPDATA%\harbor and the config.
+# Re-run to update (or tray -> "Update harbor...", which runs deploy\update-windows.ps1). Uninstall: delete the "harbor" shortcuts in Startup and the Start menu, %LOCALAPPDATA%\harbor and the config.
 [CmdletBinding()]
 param(
     # The hub's tailnet address (Pending -> "pair a device" shows it). Optional on re-runs: the
@@ -76,16 +76,20 @@ if ($Code) {
     if ($LASTEXITCODE -ne 0) { throw "saving the pairing code failed" }
 }
 
-$startup = [Environment]::GetFolderPath("Startup")
-$link = Join-Path $startup "harbor.lnk"
+# The same shortcut in Startup (runs at login) and the Start menu (start it again after quitting).
 $shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($link)
-$shortcut.TargetPath = $tray
-$shortcut.Arguments = "--agent `"$agent`" --config `"$config`""
-$shortcut.WorkingDirectory = $bin
-$shortcut.Description = "harbor tray (runs the harbor agent)"
-$shortcut.Save()
-Write-Host "Startup shortcut: $link"
+function Shortcut([string] $folder) {
+    $link = Join-Path $folder "harbor.lnk"
+    $shortcut = $shell.CreateShortcut($link)
+    $shortcut.TargetPath = $tray
+    $shortcut.Arguments = "--agent `"$agent`" --config `"$config`""
+    $shortcut.WorkingDirectory = $bin
+    $shortcut.Description = "harbor tray (runs the harbor agent)"
+    $shortcut.Save()
+    $link
+}
+Write-Host "Startup shortcut: $(Shortcut ([Environment]::GetFolderPath('Startup')))"
+Write-Host "Start menu: $(Shortcut ([Environment]::GetFolderPath('Programs')))"
 
 Start-Process -FilePath $tray -ArgumentList "--agent", "`"$agent`"", "--config", "`"$config`"" -WorkingDirectory $bin
 Write-Host ""

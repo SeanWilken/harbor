@@ -33,8 +33,8 @@ powershell -ExecutionPolicy Bypass -File deploy\install-windows.ps1 -Hub http://
 
 It builds `harbor-agent.exe` and `harbor-tray.exe` into `%LOCALAPPDATA%\harbor\bin`, writes
 `%USERPROFILE%\.config\harbor\config.json` (roots: whichever of `~\source`, `~\Documents`,
-`~\Developer`, `~\repos`, `C:\src` exist; pass `-Roots` to choose), adds a Startup shortcut and starts
-the tray. The tray runs the agent hidden (no console window) and restarts it if it exits; "Agent log"
+`~\Developer`, `~\repos`, `C:\src` exist; pass `-Roots` to choose), adds a "harbor" shortcut to
+Startup and the Start menu (to start it again after quitting) and starts the tray. The tray runs the agent hidden (no console window) and restarts it if it exits; "Agent log"
 in its menu shows the agent's output. Without `-Code`, approve the machine in the hub's Pending tab,
 or use the tray's **Pair with hub…** later.
 
@@ -42,9 +42,11 @@ Check: `& "$env:LOCALAPPDATA\harbor\bin\harbor-agent.exe" status`.
 
 **Updates:** every agent reports its harbor build (git commit). When the hub knows newer harbor
 commits (from any machine's clone, including unpushed local ones), the machine card shows "N newer"
-and the tray shows it with an **Update harbor…** item. On Windows that runs
+and the tray's **Update harbor…** item adds the count. The item is always there on Windows (the hub
+only learns of new commits when a machine with a clone rescans) and runs
 `deploy\update-windows.ps1`: `git pull --ff-only` in the checkout the installer ran from, then the
-installer again (config kept). The tray's **Start at login** item toggles the Startup shortcut.
+installer again (config kept). **Restart agent** restarts the agent alone; **Quit** stops the tray
+and the agent. **Start at login** toggles the Startup shortcut.
 
 ## 4. Linux machines and the Raspberry Pi (agent only)
 

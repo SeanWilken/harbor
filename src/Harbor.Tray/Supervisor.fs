@@ -13,6 +13,7 @@ open Harbor
 type Agent(exe: string, config: string option) =
     let stop = new CancellationTokenSource()
     let mutable current: Process option = None
+    let mutable quick = false
     let log = Path.Combine(AgentStatus.directory (), "agent.log")
 
     let start () =
@@ -34,7 +35,7 @@ type Agent(exe: string, config: string option) =
 
     member _.Log = log
 
-    /// Keep the agent running until Stop; back off 10 s between restarts (1 s after a config change).
+    /// Keep the agent running until Stop; back off 10 s between restarts (1 s after a config change or Restart).
     member _.Run() : Task =
         task {
             while not stop.IsCancellationRequested do
@@ -43,7 +44,8 @@ type Agent(exe: string, config: string option) =
                     let p = start ()
                     do! p.WaitForExitAsync stop.Token
                     // 75: the agent saw its config change and wants a quick restart
-                    if p.ExitCode = 75 then wait <- 1.
+                    if p.ExitCode = 75 || quick then wait <- 1.
+                    quick <- false
                     eprintfn $"harbor-agent exited ({p.ExitCode}); restarting in {wait} s"
                 with
                 | :? OperationCanceledException -> ()
@@ -53,6 +55,11 @@ type Agent(exe: string, config: string option) =
                 with :? OperationCanceledException ->
                     ()
         }
+
+    /// Stop the running agent; Run starts it again a second later (picking up a new config or build).
+    member _.Restart() =
+        quick <- true
+        current |> Option.iter (fun p -> try (if not p.HasExited then p.Kill true) with _ -> ())
 
     member _.Stop() =
         stop.Cancel()
