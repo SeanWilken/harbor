@@ -52,7 +52,7 @@ let private repo name behind ahead dirty (lastCommit: DateTimeOffset) =
       Branch = Some { Head = Some "main"; Oid = Some "a"; Upstream = Some "origin/main"; Ahead = ahead; Behind = behind }
       Changes = Some { Staged = 0; Unstaged = (if dirty then 1 else 0); Untracked = 0; Conflicted = 0; Paths = [||] }
       LastCommit = Some { Date = lastCommit; Author = "me"; Subject = "x" }
-      LastModified = Some lastCommit; WorktreeOf = None; LastFetch = None; FetchError = None; Error = None; Branches = None; BehindSince = None }
+      LastModified = Some lastCommit; WorktreeOf = None; LastFetch = None; FetchError = None; Error = None; Branches = None; BehindSince = None; InFlight = None }
 
 [<Fact>]
 let ``recap rules use transition times and thresholds`` () =

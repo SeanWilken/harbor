@@ -37,7 +37,7 @@ let ``viewers do not see processes, hardware addresses, emails, file names or ra
           Branch = None
           Changes = Some { Staged = 1; Unstaged = 0; Untracked = 0; Conflicted = 0; Paths = [| "secrets.env" |] }
           LastCommit = None; LastModified = None; WorktreeOf = None; LastFetch = None
-          FetchError = Some "fatal: could not read Username for 'https://x'"; Error = None; Branches = None; BehindSince = None }
+          FetchError = Some "fatal: could not read Username for 'https://x'"; Error = None; Branches = None; BehindSince = None; InFlight = None }
     let snap =
         { Machine = { Hostname = "h"; Os = "linux"; ScannedAt = DateTimeOffset.UnixEpoch; ScanMs = 1L; Roots = [||] }
           Repos = [| repo |]

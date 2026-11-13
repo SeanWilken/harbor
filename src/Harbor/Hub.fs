@@ -125,11 +125,20 @@ let adminOrLoopback (ctx: HttpContext) =
     | true, (:? Role as r) -> r = Admin
     | _ -> match ctx.Connection.RemoteIpAddress with null -> false | ip -> IPAddress.IsLoopback ip
 
-type JobBody = { Kind: string; Path: string option }
+type JobBody = { Kind: string; Path: string option; Arg: string option }
 type HiddenBody = { Path: string; Hidden: bool }
 
 /// Must match the job.kind check in db/up.
-let knownJobs = [| "fetch"; "pull" |]
+let knownJobs = [| "fetch"; "pull"; "diff" |]
+
+/// A diff names one repo and a commit or "worktree"; other jobs take no arg.
+let checkJob (body: JobBody) : Result<unit, string> =
+    match body.Kind, body.Path, body.Arg with
+    | k, _, _ when not (Array.contains k knownJobs) -> Error $"unknown job kind '{k}'"
+    | "diff", Some _, Some a when a = "worktree" || GitParse.isSha a -> Ok()
+    | "diff", _, _ -> Error "a diff needs a repo path and a commit id or 'worktree'"
+    | _, _, Some _ -> Error $"'{body.Kind}' takes no arg"
+    | _ -> Ok()
 
 let private problem code (msg: string) = Results.Json({| message = msg |}, statusCode = Nullable code)
 
@@ -274,12 +283,13 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
         task {
             if not (isAdmin ctx) then
                 return problem 403 "only hub admins can queue jobs"
-            elif not (Array.contains body.Kind knownJobs) then
-                return problem 400 $"unknown job kind '{body.Kind}'"
             else
-                match! db.RequestJob(id, body.Kind, body.Path, actor ctx) with
-                | Ok jobId -> return Results.Json({| id = jobId |}, statusCode = Nullable 202)
-                | Error e -> return problem 409 e
+                match checkJob body with
+                | Error e -> return problem 400 e
+                | Ok() ->
+                    match! db.RequestJob(id, body.Kind, body.Path, body.Arg, actor ctx) with
+                    | Ok jobId -> return Results.Json({| id = jobId |}, statusCode = Nullable 202)
+                    | Error e -> return problem 409 e
         })) |> ignore
 
     app.MapGet("/api/machines/{id}/jobs", Func<HttpContext, int64, Task<Storage.JobInfo[]>>(fun ctx id ->

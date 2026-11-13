@@ -20,7 +20,7 @@ let private repo path =
       LastFetch = None
       FetchError = None
       Error = None
-      Branches = None; BehindSince = None }
+      Branches = None; BehindSince = None; InFlight = None }
 
 let private snap roots repos services =
     { Machine = { Hostname = "h"; Os = "linux"; ScannedAt = at; ScanMs = 1L; Roots = roots }

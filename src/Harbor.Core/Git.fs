@@ -43,6 +43,22 @@ let lastModified (repo: string) (commit: Commit option) (changes: Changes option
     |> Array.sortDescending
     |> Array.tryHead
 
+/// Commits on local branches that no remote-tracking ref has, and the stash count.
+let private inFlight (repo: string) : Threading.Tasks.Task<InFlight option> =
+    task {
+        let log = git repo [ "log"; "-z"; "-n"; "20"; "--source"; GitParse.unpushedFormat; "--branches"; "--not"; "--remotes" ]
+        let count = git repo [ "rev-list"; "--count"; "--branches"; "--not"; "--remotes" ]
+        let stash = git repo [ "stash"; "list"; "--format=%gd" ]
+        let! log = log
+        let! count = count
+        let! stash = stash
+        match log, count with
+        | Ok l, Ok c ->
+            let stashes = stash |> Result.map (fun s -> s.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length) |> Result.defaultValue 0
+            return Some { Unpushed = GitParse.unpushed l; UnpushedCount = (match Int32.TryParse(c.Trim()) with | true, n -> n | _ -> 0); Stashes = stashes }
+        | _ -> return None
+    }
+
 let scan (repo: string) : Threading.Tasks.Task<Repo> =
     task {
         let status = git repo [ "status"; "-z"; "--porcelain=v2"; "--branch" ]
@@ -71,6 +87,10 @@ let scan (repo: string) : Threading.Tasks.Task<Repo> =
                     | Error _ -> return None
                 }
             | _ -> Threading.Tasks.Task.FromResult None
+        let! inFlight =
+            match remotes with
+            | Ok r when r.Trim() <> "" -> inFlight repo
+            | _ -> Threading.Tasks.Task.FromResult None
         let changes = parsed |> Option.map snd
         let commit = log |> Result.toOption |> Option.bind GitParse.lastCommit
         return
@@ -88,7 +108,8 @@ let scan (repo: string) : Threading.Tasks.Task<Repo> =
               FetchError = None
               Error = match status with Error e -> Some e | Ok _ -> None
               Branches = branches |> Result.toOption |> Option.map GitParse.branches
-              BehindSince = behindSince }
+              BehindSince = behindSince
+              InFlight = inFlight }
     }
 
 /// Commits from the last 30 days (at most 100), newest first; empty for a repo with no commits.
@@ -115,4 +136,29 @@ let fetch (repo: string) : Threading.Tasks.Task<Result<unit, string>> =
         match! gitWith (TimeSpan.FromSeconds 120.) repo [ "fetch"; "--all"; "--prune"; "--quiet" ] with
         | Ok _ -> return Ok()
         | Error e -> return Error(if e = "" then "git fetch failed" else e)
+    }
+
+let private maxDiff = 256 * 1024
+let private diffFlags = [ "--no-color"; "--no-ext-diff"; "--no-textconv"; "--stat"; "--patch" ]
+
+let private capped (text: string) =
+    if text.Length <= maxDiff then text
+    else text.Substring(0, maxDiff) + $"\n\n… cut at {maxDiff / 1024} KB of {text.Length / 1024} KB"
+
+/// Read-only: one commit (`git show`) or the uncommitted changes against HEAD (`git diff HEAD`,
+/// plus untracked file names, never their contents). Capped at 256 KB.
+let diff (repo: string) (target: string) : Threading.Tasks.Task<Result<string, string>> =
+    task {
+        if target = "worktree" then
+            let! d = git repo ([ "diff" ] @ diffFlags @ [ "HEAD"; "--" ])
+            let! u = git repo [ "ls-files"; "--others"; "--exclude-standard" ]
+            let untracked =
+                u |> Result.map (fun s -> s.Split('\n', StringSplitOptions.RemoveEmptyEntries)) |> Result.defaultValue [||]
+            let tail = if untracked.Length = 0 then "" else "\nuntracked (contents not sent):\n" + String.Join("\n", untracked |> Array.truncate 200 |> Array.map (fun f -> "  " + f))
+            return d |> Result.map (fun text -> capped ((if text.Trim() = "" then "no changes to tracked files\n" else text) + tail))
+        elif GitParse.isSha target then
+            let! d = git repo ([ "show"; "--format=fuller" ] @ diffFlags @ [ "--end-of-options"; target; "--" ])
+            return d |> Result.map capped
+        else
+            return Error "diff needs a commit id or 'worktree'"
     }

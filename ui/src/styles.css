@@ -325,3 +325,27 @@ a.act { color: inherit; text-decoration: none; } a.act:hover { border-color: var
   .copy .copy-state { grid-column: 1 / -1; }
   .copy .when { grid-column: 2; grid-row: 1; }
 }
+
+/* work in flight */
+.work-note { margin: 4px 0 8px; font-size: 12px; }
+.work-copy { list-style: none; }
+.copy-state .link { font: inherit; padding: 0; }
+.warnlink { color: var(--warn); }
+.commits { list-style: none; margin: 2px 0 8px; padding: 0 0 0 24px; font: 12px var(--mono); }
+.commits li { display: flex; gap: 10px; align-items: baseline; padding: 2px 0; min-width: 0; }
+.commits .subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+.commits .sha { font: inherit; }
+.diff-box { width: min(1000px, 100%); }
+.diff-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+.diff-head b { font-weight: 400; overflow-wrap: anywhere; }
+pre.diff { margin: 0; font: 12px/1.45 var(--mono); overflow-x: auto; background: var(--well); border: 1px solid var(--line); border-radius: 8px; padding: 8px 0; }
+pre.diff div { padding: 0 10px; white-space: pre; min-width: max-content; }
+pre.diff .d-file { color: var(--fg); font-weight: 600; }
+pre.diff .d-hunk { color: var(--accent); }
+pre.diff .d-add { color: var(--ok); background: #b6c8a612; }
+pre.diff .d-del { color: var(--danger); background: #e48a7a12; }
+@media (max-width: 640px) {
+  .commits { padding-left: 8px; }
+  .commits li { flex-wrap: wrap; gap: 2px 8px; }
+  .commits .subject { flex-basis: 100%; order: 3; white-space: normal; }
+}

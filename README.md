@@ -147,6 +147,20 @@ Each snapshot also carries, read fresh at push time (anything unavailable is lef
 Process names are cut to the program name: Linux can report a whole rewritten command line, which
 can include session tokens.
 
+## Work in flight
+
+Network → **work** lists, per repo and machine, what exists only in that clone: commits on local
+branches that no remote has (`git log --branches --not --remotes`, with the branch each came from),
+stashes and uncommitted changes. Clones of one remote are grouped, so work spread over two machines
+shows side by side; a commit unpushed on two machines says "also on …". It is as fresh as each repo's
+last fetch.
+
+Admins can open any of those commits, or a clone's uncommitted changes, as a diff: the hub queues a
+read-only `diff` job and the machine that has the work answers within seconds over its live link
+(`git show` / `git diff HEAD`, capped at 256 KB; untracked files are listed, never sent). The agent
+only runs it in repos it scans. Diff output is admin-only and cleared from the hub after a day. To
+keep a machine's code off the hub, leave `diff` out of its `agent.allow`.
+
 ## Manifests and recaps
 
 Each agent builds a **manifest** after its first scan and every `manifestHours` (default 6): OS and

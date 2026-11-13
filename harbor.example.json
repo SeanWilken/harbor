@@ -6,7 +6,7 @@
   // agent / both: where to push. Over the tailnet (MagicDNS name or 100.x address), never loopback.
   // allow: job kinds this machine runs when the hub asks (the hub can't ask for more).
   // pull = fetch, then fast-forward only a clean branch with no unpushed commits.
-  "agent": { "hub": "http://devbox:7420", "pushSeconds": 60, "allow": ["fetch", "pull"] },
+  "agent": { "hub": "http://devbox:7420", "pushSeconds": 60, "allow": ["fetch", "pull", "diff"] },
   // hub / both: deploy/install-pg.sh prints the connection string.
   "hub": {
     "database": "Host=127.0.0.1;Port=5432;Database=harbor;Username=harbor;Password=...",

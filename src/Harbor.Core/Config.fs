@@ -134,9 +134,11 @@ type private ConfigFile =
       Agent: AgentFile option
       Hub: HubFile option }
 
-/// Both are on by default: fetch only touches remote-tracking refs, and pull only fast-forwards a
-/// clean branch with nothing unpushed, so neither can lose local work. Set agent.allow to narrow it.
-let defaultAllow = [| "fetch"; "pull" |]
+/// On by default: fetch only touches remote-tracking refs, and pull only fast-forwards a clean
+/// branch with nothing unpushed, so neither can lose local work. diff only reads, but sends code
+/// (a commit or uncommitted changes, never untracked files' contents) to the hub, where only admins
+/// see it. Set agent.allow to narrow it, e.g. ["fetch", "pull"].
+let defaultAllow = [| "fetch"; "pull"; "diff" |]
 
 let private home = Environment.GetFolderPath Environment.SpecialFolder.UserProfile
 

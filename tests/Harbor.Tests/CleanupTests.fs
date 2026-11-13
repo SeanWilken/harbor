@@ -36,7 +36,7 @@ let ``discovery skips dot-folders below a root but not the root itself`` () =
 
 let private job sent finished : HarborDb.``public``.job =
     { id = 1L; machine_id = 1L; kind = "fetch"; path = None; requested_at = DateTime.UtcNow; requested_by = "local"
-      sent_at = sent; finished_at = finished; ok = None; output = None }
+      sent_at = sent; finished_at = finished; ok = None; output = None; arg = None }
 
 [<Fact>]
 let ``jobs are sent once, resent only after the agent went quiet, never after finishing`` () =
@@ -49,7 +49,7 @@ let ``jobs are sent once, resent only after the agent went quiet, never after fi
 [<Fact>]
 let ``an agent refuses job kinds it does not allow`` () =
     let store = Inventory.Store Config.defaults
-    let r = (Agent.runJob store [||] { Id = 7L; Kind = "fetch"; Path = None }).Result
+    let r = (Agent.runJob store [||] { Id = 7L; Kind = "fetch"; Path = None; Arg = None }).Result
     Assert.False r.Ok
     Assert.Contains("not allowed", r.Output)
 

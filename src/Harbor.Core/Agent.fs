@@ -83,6 +83,18 @@ let runJob (store: Inventory.Store) (allow: string[]) (job: JobRequest) : Task<J
                     match! store.Pull job.Path with
                     | Error e -> return finish false e
                     | Ok results -> return pullResult job.Path results ||> finish
+                | "diff" ->
+                    match job.Path, job.Arg with
+                    | Some path, Some target ->
+                        // only repos this agent scans: a job can't point git at any other folder
+                        let! snap = store.Snapshot()
+                        if snap.Repos |> Array.exists (fun r -> r.Path = path) then
+                            match! Git.diff path target with
+                            | Ok text -> return finish true text
+                            | Error e -> return finish false e
+                        else
+                            return finish false $"{path} is not a repo harbor scans here"
+                    | _ -> return finish false "a diff needs a repo path and a commit id or 'worktree'"
                 | other -> return finish false $"unknown job kind '{other}'"
             with ex ->
                 return finish false ex.Message

@@ -6,9 +6,10 @@ const pct = (n?: number) => (n === undefined ? "–" : String(Math.round(n)));
 import { SharedView } from "./SharedView";
 import { CompareView } from "./CompareView";
 import { RecapView } from "./RecapView";
+import { WorkView } from "./WorkView";
 
-export type NetView = "grid" | "map" | "repos" | "compare" | "recap";
-export const NET_VIEWS: NetView[] = ["grid", "map", "repos", "compare", "recap"];
+export type NetView = "grid" | "map" | "repos" | "work" | "compare" | "recap";
+export const NET_VIEWS: NetView[] = ["grid", "map", "repos", "work", "compare", "recap"];
 
 type Props = {
   machines: MachineSummary[];
@@ -54,6 +55,7 @@ export function NetworkView({ machines, shared, admin, view, pins, selfId, now, 
       )}
       {view === "map" && <NetMap machines={shown} now={now} onOpen={onOpen} />}
       {view === "repos" && <SharedView groups={shared} now={now} onPull={onPullCopies} />}
+      {view === "work" && <WorkView machines={machines} admin={admin} now={now} />}
       {view === "compare" && <CompareView machines={machines} admin={admin} />}
       {view === "recap" && <RecapView now={now} />}
     </>

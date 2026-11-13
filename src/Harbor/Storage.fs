@@ -58,7 +58,8 @@ type JobInfo =
       SentAt: DateTimeOffset option
       FinishedAt: DateTimeOffset option
       Ok: bool option
-      Output: string option }
+      Output: string option
+      Arg: string option }
 
 type Copy =
     { MachineId: int64
@@ -192,7 +193,8 @@ let private jobInfo (j: job) : JobInfo =
       SentAt = j.sent_at |> Option.map dto
       FinishedAt = j.finished_at |> Option.map dto
       Ok = j.ok
-      Output = j.output }
+      Output = j.output
+      Arg = j.arg }
 
 let summarize (m: machine) (payload: Push option) (hidden: string[]) : MachineSummary =
     let snap = payload |> Option.map _.Snapshot
@@ -435,7 +437,7 @@ type Db(connectionString: string) =
             for j in due do
                 let! _ = updateTask ctx { for x in job do set x.sent_at (Some now); where (x.id = j.id) }
                 ()
-            return due |> Array.map (fun j -> { Id = j.id; Kind = j.kind; Path = j.path })
+            return due |> Array.map (fun j -> { Id = j.id; Kind = j.kind; Path = j.path; Arg = j.arg })
         }
 
     let hiddenPaths (ctx: QueryContext) =
@@ -746,7 +748,7 @@ type Db(connectionString: string) =
         }
 
     /// Queue a job for an approved machine; an identical open job is reused rather than duplicated.
-    member _.RequestJob(machineId: int64, kind: string, path: string option, requestedBy: string) : Task<Result<int64, string>> =
+    member _.RequestJob(machineId: int64, kind: string, path: string option, arg: string option, requestedBy: string) : Task<Result<int64, string>> =
         serialized (fun ctx ->
             task {
                 let! m = selectTask ctx { for x in machine do where (x.id = machineId); tryHead }
@@ -755,7 +757,7 @@ type Db(connectionString: string) =
                 | Some m when m.status <> "approved" -> return Error $"machine is {m.status}"
                 | Some m ->
                     let! open' = selectTask ctx { for j in job do where (j.machine_id = machineId && j.finished_at = None) }
-                    match open' |> Seq.tryFind (fun j -> j.kind = kind && j.path = path) with
+                    match open' |> Seq.tryFind (fun j -> j.kind = kind && j.path = path && j.arg = arg) with
                     | Some j -> return Ok j.id
                     | None ->
                         let! id =
@@ -770,7 +772,8 @@ type Db(connectionString: string) =
                                       sent_at = None
                                       finished_at = None
                                       ok = None
-                                      output = None }
+                                      output = None
+                                      arg = arg }
                                 getId j.id
                             }
                         do! insertEvents ctx [ auditRow machineId requestedBy "job_requested" path (Some $"{kind} #{id}") ]
@@ -968,9 +971,11 @@ type Db(connectionString: string) =
                         """delete from manifest m where m.taken_at < now() - interval '90 days'
                            and m.id <> (select max(id) from manifest l where l.machine_id = m.machine_id)"""
                 let! jobs = run "job output" "update job set output = null where output is not null and finished_at < now() - interval '30 days'"
+                // diffs are code: keep them only long enough to read
+                let! diffs = run "diff output" "update job set output = null where kind = 'diff' and output is not null and finished_at < now() - interval '1 day'"
                 let! recaps = run "recaps" "delete from recap where id not in (select id from recap order by period_end desc limit 52)"
                 let! codes = run "pairing codes" "delete from pairing_code where used_at is null and expires_at < now() - interval '1 day'"
-                return [ events; manifests; jobs; recaps; codes ] |> List.filter (fun (_, n) -> n > 0)
+                return [ events; manifests; jobs; diffs; recaps; codes ] |> List.filter (fun (_, n) -> n > 0)
             })
 
     /// (node id, name): the key agent links and wakes use.

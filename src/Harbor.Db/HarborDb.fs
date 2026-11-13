@@ -134,7 +134,9 @@ module ``public`` =
           [<ProviderDbType("Boolean")>]
           ok: Option<bool>
           [<ProviderDbType("Text")>]
-          output: Option<string> }
+          output: Option<string>
+          [<ProviderDbType("Text")>]
+          arg: Option<string> }
 
         interface IHasWrite<job_write> with
             /// This row's writable columns, as `writeEntity` takes them: `toWrite row`.
@@ -147,7 +149,8 @@ module ``public`` =
                   sent_at = this.sent_at
                   finished_at = this.finished_at
                   ok = this.ok
-                  output = this.output }
+                  output = this.output
+                  arg = this.arg }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -159,7 +162,8 @@ module ``public`` =
                   { WriteColumn.Name = "sent_at"; Value = box this.sent_at; ProviderDbType = Some "TimestampTz" }
                   { WriteColumn.Name = "finished_at"; Value = box this.finished_at; ProviderDbType = Some "TimestampTz" }
                   { WriteColumn.Name = "ok"; Value = box this.ok; ProviderDbType = Some "Boolean" }
-                  { WriteColumn.Name = "output"; Value = box this.output; ProviderDbType = Some "Text" } ]
+                  { WriteColumn.Name = "output"; Value = box this.output; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "arg"; Value = box this.arg; ProviderDbType = Some "Text" } ]
 
     /// The columns of `job` a caller may write; the database owns the rest.
     and job_write =
@@ -180,7 +184,9 @@ module ``public`` =
           [<ProviderDbType("Boolean")>]
           ok: Option<bool>
           [<ProviderDbType("Text")>]
-          output: Option<string> }
+          output: Option<string>
+          [<ProviderDbType("Text")>]
+          arg: Option<string> }
 
         interface IWriteOf<job> with
             member this.WriteColumns =
@@ -192,7 +198,8 @@ module ``public`` =
                   { WriteColumn.Name = "sent_at"; Value = box this.sent_at; ProviderDbType = Some "TimestampTz" }
                   { WriteColumn.Name = "finished_at"; Value = box this.finished_at; ProviderDbType = Some "TimestampTz" }
                   { WriteColumn.Name = "ok"; Value = box this.ok; ProviderDbType = Some "Boolean" }
-                  { WriteColumn.Name = "output"; Value = box this.output; ProviderDbType = Some "Text" } ]
+                  { WriteColumn.Name = "output"; Value = box this.output; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "arg"; Value = box this.arg; ProviderDbType = Some "Text" } ]
 
     let job = table<job>
 

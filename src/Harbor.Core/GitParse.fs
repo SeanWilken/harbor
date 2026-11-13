@@ -177,3 +177,21 @@ let branches (out: string) : LocalBranch[] =
                     | true, d -> Some d
                     | _ -> None }
         | _ -> None)
+
+let unpushedFormat = "--format=%H%x1f%aI%x1f%S%x1f%s"
+
+/// `git log -z --source --branches --not --remotes` with unpushedFormat.
+let unpushed (out: string) : UnpushedCommit[] =
+    out.Split('\000', StringSplitOptions.RemoveEmptyEntries)
+    |> Array.choose (fun record ->
+        match record.TrimStart('\n').Split('\031') with
+        | [| sha; date; source; subject |] ->
+            match DateTimeOffset.TryParse date with
+            | true, d ->
+                let branch = if source.StartsWith "refs/heads/" then source.Substring 11 else source
+                Some { Sha = sha; Date = d; Subject = subject; Branch = branch }
+            | _ -> None
+        | _ -> None)
+
+/// A commit id a job may name: 7–40 lowercase hex, nothing git could read as an option or range.
+let isSha (s: string) = Text.RegularExpressions.Regex.IsMatch(s, "^[0-9a-f]{7,40}$")

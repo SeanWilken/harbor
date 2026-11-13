@@ -26,6 +26,13 @@ export const syncAll = () => post("/api/sync");
 export const fetchJobs = (id: number) => get<JobInfo[]>(`/api/machines/${id}/jobs`);
 /** Queue a `git fetch` on that machine: one repo, or all of them when path is omitted. */
 export const requestFetch = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "fetch", path });
+/** A read-only diff from the machine that has the work: a commit sha or "worktree". Admins only. */
+export const requestDiff = async (id: number, path: string, arg: string): Promise<number> => {
+  const r = await fetch(`/api/machines/${id}/jobs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "diff", path, arg }) });
+  const body = await r.json().catch(() => null) as { id?: number; message?: string } | null;
+  if (!r.ok || body?.id === undefined) throw new Error(body?.message ?? `diff: HTTP ${r.status}`);
+  return body.id;
+};
 export const requestPull = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "pull", path });
 export const setHidden = (id: number, path: string, hidden: boolean) => post(`/api/machines/${id}/hidden`, { path, hidden });
 export const fetchMe = () => get<Me>("/api/me");

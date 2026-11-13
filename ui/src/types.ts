@@ -4,6 +4,10 @@ export type Identity = { name?: string; email?: string; scope?: string };
 export type Branch = { head?: string; oid?: string; upstream?: string; ahead: number; behind: number };
 export type Changes = { staged: number; unstaged: number; untracked: number; conflicted: number; paths: string[] };
 export type Commit = { date: string; author: string; subject: string };
+/** A commit on a local branch that no remote-tracking ref has. */
+export type UnpushedCommit = { sha: string; date: string; subject: string; branch: string };
+/** Work only this clone has; as fresh as its last fetch. Absent for repos without remotes. */
+export type InFlight = { unpushed: UnpushedCommit[]; unpushedCount: number; stashes: number };
 export type LocalBranch = { name: string; upstream?: string; ahead: number; behind: number; gone: boolean; date?: string };
 export type Repo = {
   path: string;
@@ -19,6 +23,7 @@ export type Repo = {
   fetchError?: string;
   error?: string;
   branches?: LocalBranch[];
+  inFlight?: InFlight;
 };
 export type ServiceState = "running" | "stopped" | "unknown";
 export type ServiceStatus = { name: string; check: string; state: ServiceState; detail: string };
@@ -52,7 +57,7 @@ export type MachineSummary = {
 };
 export type JobInfo = {
   id: number; kind: string; path?: string; requestedAt: string; requestedBy: string;
-  sentAt?: string; finishedAt?: string; ok?: boolean; output?: string;
+  sentAt?: string; finishedAt?: string; ok?: boolean; output?: string; arg?: string;
 };
 export type Copy = {
   machineId: number; machine: string; path: string; branch?: string; headOid?: string;

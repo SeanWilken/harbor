@@ -39,6 +39,21 @@ type LocalBranch =
       Gone: bool
       Date: DateTimeOffset option }
 
+/// A commit on a local branch that no remote-tracking ref contains.
+type UnpushedCommit =
+    { Sha: string
+      Date: DateTimeOffset
+      Subject: string
+      /// The local branch it was reached from.
+      Branch: string }
+
+/// Work that exists only in this clone: commits on local branches no remote has, and stashes.
+/// Measured against remote-tracking refs, so it's as fresh as the last fetch.
+type InFlight =
+    { Unpushed: UnpushedCommit[] // newest first, at most 20
+      UnpushedCount: int
+      Stashes: int }
+
 type Repo =
     { Path: string
       Name: string
@@ -59,7 +74,9 @@ type Repo =
       Branches: LocalBranch[] option
       /// When behind: commit date of the oldest upstream commit not yet in HEAD, i.e. how long
       /// this clone has been missing upstream work.
-      BehindSince: DateTimeOffset option }
+      BehindSince: DateTimeOffset option
+      /// None for repos without remotes (everything is local there) and older agents.
+      InFlight: InFlight option }
 
 type ServiceState =
     | Running
@@ -190,7 +207,8 @@ type LoggedCommit =
 type RepoCommits = { Path: string; Commits: LoggedCommit[] }
 
 /// Work the hub asks an agent to do. Kind is checked against the agent's `allow` list.
-type JobRequest = { Id: int64; Kind: string; Path: string option }
+/// Arg: for "diff", a commit sha or "worktree" (uncommitted changes).
+type JobRequest = { Id: int64; Kind: string; Path: string option; Arg: string option }
 
 type JobResult =
     { Id: int64
