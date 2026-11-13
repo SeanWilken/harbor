@@ -1,128 +1,99 @@
-# Optional display capability: integration handoff
+# Desktop viewers in harbor: the contract
 
-User-directed architecture agreement, 2026-11-12. This is the current integration direction; it does not announce a working Harbor/display integration.
+Harbor's side of the integration with a desktop viewer (today: DisplayOverInternet). The viewer's
+side is its own `docs/HARBOR_INTEGRATION.md`. Between them, these two documents are the interface:
+each product's agent works only in its own repository, and a change that crosses the line starts as
+an edit to the providing side's document, which the other side then picks up. Neither side reviews
+the other's code.
 
-## Producer alpha now available — 2026-11-12
+Contract version: **1** (2026-11-13).
 
+## Who owns what
 
-The initial library extraction and package-only consumer milestone is ready for **integration feedback**.
-It is not production Harbor integration and does not unblock the live Desktop view tile by itself.
-
-Portable SDK archive: `display-sdk-0.1.0-local.20261112180315.zip` (local distribution build).
-NuGet build: `0.1.0-local.20261112180315`. Browser tarball: `0.1.0`, pinned by the bundle's file-hash manifest.
-The bundle contains five packages (Core, Protocol, Identity, Runtime, AspNetCore), browser JS/types,
-a prebuilt synthetic hub/outbound-agent consumer, setup notes and SHA-256 file hashes.
-It contains no live host configuration, pairing state, credentials or EDID.
-
-Copy/extract the bundle wherever the consuming application keeps its development dependencies.
-No DOI checkout, standalone host/tray/PWA or DOI service needs to run. Install only the packages needed.
-Use the bundle's `nuget` directory plus the normal NuGet source for dependency restore; install
-`browser/receiver-client-0.1.0.tgz` locally with Bun for browser consumers. The bundle README is self-contained.
-These are experimental working-tree artifacts, not a GitHub release or public registry publication.
-
-Implemented seams: listener-independent single-publication sessions, media factory and signaling connection,
-optional web endpoint mapping with trusted application authorization, configurable receiver API mount,
-view-only playback and explicit audio approval. `AuthorizedSession.AudioAllowed` defaults to false by policy;
-`IMediaWorkerFactory.StartAsync` receives the trusted session and cancellation. Missing old audio fields mean
-video-only, and configured output audio is suppressed for such grants. Identity's private file writer is Unix-specific.
-
-Production Harbor transport/multiplexing, renewable authorization leases, detailed device/session projections,
-durable events and supported cross-platform capture remain pending. Harbor should keep its real viewing tile
-disabled until those policy/transport/provider checks pass. It can now evaluate package APIs and the synthetic
-consumer while roles, redaction, inventory, networking and other administration work proceeds independently.
-
-Requested feedback: package/install friction, lifecycle/cancellation behavior, authorization adapter fit,
-required device/session snapshots/events and platform packaging needs. New native-monitor experiments are
-independent of this handoff and must not become a dependency of Harbor's inventory or admin functions.
-
-## Product ownership and installation
-
-Harbor is the independently installable machine/repository ledger, inventory, troubleshooting and administration/control plane: a personal tailnet administration console. It owns its machine/access catalog, configuration workflows, policy and audit UX. This broader direction does not mean configuration mutation, remote input or arbitrary administration is already implemented.
-
-DisplayOverInternet is an independently installable lightweight display and workstation-view replication product. Its display implementation will also be consumable as libraries and platform assets by Harbor and other applications.
-
-**Harbor must not require the standalone DisplayOverInternet app, daemon, tray, PWA or repository checkout.** DisplayOverInternet must not require Harbor. Display viewing is an optional Harbor capability; its absence or failure must not prevent inventory, repository operations or other administration features from working.
-
-| Installation | Expected behavior |
+| Harbor | The viewer |
 | --- | --- |
-| Harbor without display support | Full available Harbor inventory/admin functionality; desktop viewing shown as not installed or unsupported |
-| Harbor with display support | Bundles the display runtime and browser SDK; supplies explicit authorization and persistence adapters |
-| Standalone DisplayOverInternet | Uses the same runtime with its lightweight host, pairing and receiver |
-| Optional external display provider | Connects through a separately designed versioned service client; not the prerequisite integration path |
+| Machine inventory, the hub, the iPad entry point (`https://<hub>:7443`) | Capture, encoding, WebRTC media |
+| The `access` catalog: which machine has which viewer or RDP host | Device pairing: codes, grants, expiry, the paired-device list, revocation |
+| The `/display/<machine>/` pass-through | Its receiver page, API and signaling, under its own root and an optional mount |
+| Harbor's own roles (`hub.admins`, `hub.viewers`) gating the hub | Its own authorization of every viewer request; harbor's roles never replace it |
 
-This refines earlier DisplayOverInternet notes assigning the general access launchpad exclusively to that product. Harbor owns its general fleet/admin access experience; reusable display packages own display behavior. A viewer remains view-only unless a separate control capability is explicitly implemented and authorized.
+Neither product requires the other. Harbor without a viewer shows Desktop view as "not configured";
+a viewer without harbor works on its own address. Remote control (RDP) is a separate entry and a
+separate sign-in; it is not part of this contract.
 
-## Available now versus pending
+## What harbor relies on (v1)
 
-| Building block | Current status |
-| --- | --- |
-| `Display.Core` | Existing .NET display validation/lifecycle library |
-| `Display.Protocol` | Existing version 1 host/channel/receiver-session/pairing DTOs and signaling envelope validation; not a complete admin/device/event API |
-| `Display.Identity` | Existing standalone hashed bearer-grant persistence and expiry; private-file writer is Unix-specific, storage/policy adapters still needed |
-| `@wireless-display/receiver-client` | Existing framework-independent TypeScript browser discovery, pairing and view-only playback; used by the standalone React receiver |
-| `Display.Runtime` | Initial transport-independent single-publication sessions, worker supervision, capacity, authorization checks and cleanup are packaged |
-| ASP.NET composition API | Initial `Display.AspNetCore` subscription mapping is packaged; discovery/enrollment/static UI and policy remain application-owned |
-| Device projections/session events | Planned scoped contracts; no durable per-device last-seen/history API today |
-| Package distribution | Portable local alpha bundle with five NuGet packages, browser tarball and prebuilt synthetic consumer; no public feed or production Harbor integration |
+1. **A plain https origin per machine**, on the machine's own tailnet name (e.g.
+   `https://<machine>.<tailnet>.ts.net`), declared in that machine's harbor config:
+   `"access": [{ "kind": "display", "url": "https://<machine>.<tailnet>.ts.net" }]`.
+2. **A mount at `/display/<machine>`**, where `<machine>` is harbor's machine name (lowercase
+   `[a-z0-9-]`), configured on the viewer, set explicitly on both sides and never derived from
+   hostnames. Under it:
+   - `<mount>` redirects to `<mount>/`; the receiver page is `<mount>/`;
+   - the API is `<mount>/api/…`, and `GET <mount>/api/session` answers **200 or 401 with a JSON
+     body**. Harbor uses that answer to decide that the mount works (Desktop view then says "through
+     harbor");
+   - signaling is a WebSocket under `<mount>/api/subscribe/…`.
+3. **Harbor's origin is accepted only under the mount** (`https://<hub>.<tailnet>.ts.net:7443`),
+   never at the viewer's root.
+4. **The pairing cookie is scoped to the mount path** (`Path=<mount>`, `Secure`, `HttpOnly`,
+   `SameSite=Strict`, no `Domain`), so machines behind the one hub origin stay apart.
+5. **Responses that carry credentials are `no-store`.**
 
-Do not add a dependency on the standalone host executable or copy its `Program.fs`, pairing scripts, `.local` state, worker internals or React application into Harbor. Do not treat the proposed package names or pseudo-contracts as stable APIs before the first runtime milestone lands.
+If any of these changes, bump the version in the viewer's document and say what harbor must do.
 
-## Work Harbor can continue now
+## What harbor guarantees
 
-- Repository inventory, fetch jobs, cross-machine comparisons, release tracking and fleet resource/service views can proceed independently.
-- Consumer authorization, redaction, audit and resumable ledger/feed work can proceed without display packages. The consumer bearer scopes described in `design.md` are planned, not the current tailnet guard implementation.
-- General access-catalog UX can be designed around optional capabilities, explicit permissions and endpoint references. Use fixture data for display states; do not imply a live adapter or current-browser authorization from those fixtures.
-- Define presentation for not-installed, unsupported, unavailable, ready and stale observations. Keep actual publication availability, current-user authorization and active playback as separate facts. Exact shared DTOs will be agreed with the runtime rather than invented as a parallel display protocol.
-- Continue bounded, explicitly authorized machine/configuration workflows using Harbor's own design process. Existing remote jobs remain fetch-only; a display integration does not authorize arbitrary shell execution or add new job kinds.
+- **The path is passed through unchanged** (no prefix stripping), with the method, body, `Origin`,
+  `Cookie` and `Set-Cookie`. WebSocket upgrades pass through; the idle timeout is 30 minutes.
+- **Harbor forwards only to the `display` URL in the latest snapshot of an approved machine**, and
+  only when its host is that machine's own tailnet name (the hub's own name for the hub machine). It
+  never forwards to loopback, LAN addresses or another machine, whatever a config claims.
+- **Harbor removes its callers' `Tailscale-*` identity headers** before forwarding. It adds no
+  forwarding headers.
+- **Harbor never reads, logs or stores** the viewer's cookie, pairing codes or the body of a pairing
+  request. Forwarding logs are kept to warnings and errors. Harbor's UI has no service worker.
+- **Harbor serves only its own bundled code** on its origin. That origin is as trusted as the viewer
+  (same-origin with every mounted viewer), and harbor treats it that way.
+- **Media never passes through harbor.** Only the page, the API and signaling do.
+- **The Desktop view tile opens the mount in the same window**, so on an iPad the pairing lives in
+  harbor's Home Screen app. Without a working mount it links to the viewer's own origin in a new tab.
+- **A pairing made at the viewer's own origin and one made through harbor are separate devices.**
+  Harbor never copies or migrates credentials between them.
 
-The Desktop view and Remote control tiles in `ui/src/components/MachinePanel.tsx` are currently placeholders. Their tooltips still mention the older catalog/status integration assumption. Keep them disabled until an actual provider is wired and validated, or update their wording in a separate UI change to explain that the optional capability is unavailable.
+## Open items for the viewer
 
-## Integration seam to preserve
+Nothing here blocks harbor. These are suggestions for the viewer's own backlog; it decides.
 
-Harbor may expose an optional capability-provider boundary in its own architecture, but need not implement a plugin framework or display subsystem ahead of the packages. A display provider should contribute only the information and operations appropriate to the caller: display host identity, publication descriptors/readiness, authorized view entry points, and later scoped device/session projections.
+1. **The `display` entry is a top-level `access` key.** A note in the viewer's
+   `HARBOR_INTEGRATION.md` says harbor rejects `{ "kind": "display" }` and fails to load its whole
+   config. That is only true inside `services` (health checks); as a top-level `access` entry it
+   loads, and builds older than the `access` feature ignore it. Please correct the note.
+2. **Pairing QR targets the mount when one is configured**, so a scan opens it in harbor's app
+   context.
+3. **The paired-device list and revocation in the viewer's tray** are entirely the viewer's own work.
+   Harbor does not need to see devices; if it ever shows a count, it would be a separately agreed,
+   read-only field.
+4. **Conformance tests on the viewer's side** for items 2–5 above (mount routes, origin only under the
+   mount, cookie path, `no-store`). Harbor tests its side (forwarding rule, machine names).
+5. **Media reachability** (firewall rules for WebRTC on Windows) stays the viewer's install concern;
+   a working page through harbor doesn't prove media reachability.
 
-Keep display existence, publication and subscription separate. A view request must not implicitly create an output. Disconnection must not remove a display. Reconnect must not silently extend a grant. A second viewer or desktop mirror is not evidence of an extended native monitor.
+## Later, not now
 
-Use explicit stable-ID associations: Harbor identifies remote agents by Tailscale node StableID plus configured machine name, while the current standalone display host has its own persisted logical ID. Multiple agents can exist on one node. Do not join solely on hostnames, IPs or labels, or equate a receiver credential context with a physical machine. Persisted standalone host IDs are not cryptographic fingerprints.
+- **Signaling over harbor's agent link** (no browser-facing listener on the workstation) is still the
+  end-state idea. The pass-through is the interim and does not replace it. It would be a v2 of this
+  contract, designed in the viewer's document first.
+- **Embedding the viewer's packages in harbor** (the SDK alpha) stays optional. Harbor won't depend on
+  them until the viewer marks a stable release.
+- **Harbor showing viewer state** (installed, media available, active sessions) would need a scoped,
+  read-only field agreed here first; it never goes into broadly readable fleet snapshots by default.
 
-Provider observations need their own source timestamp and readiness state. Keep Harbor push/ingest time separate; forwarding an old observation in a fresh push must not make it look current. Capability errors should be isolated from inventory scans and push availability.
+## Shared ground rules
 
-## Deployment, authorization and media
-
-Embedded means the installing application's host uses the runtime library; native capture/encoding may still use a supervised child worker. GStreamer/codecs, graphical-session access and platform permissions remain dependencies that the optional workstation feature must detect/package/document. A hub-only install needs no capture dependencies. Windows capture/virtual-display support remains separately validated work.
-
-Capture runs on the target workstation beside the appropriate graphical session, not automatically inside the central Harbor hub. A system-service agent may need an explicit session bridge. Remote signaling routing, HTTPS and media reachability still need a deployment design; embedding is not a fleet transport solution. Preserve direct WebRTC media delivery where supported rather than carrying video through inventory snapshots, Postgres or the job queue.
-
-Harbor supplies an explicit display authorization adapter. Its current known-tailnet-peer read access and machine enrollment are not sufficient permission to view a desktop. Missing policy fails closed. Distinguish viewing, device enrollment/revocation, native display provisioning and future input/control. Reuse proven authentication mechanisms; do not forward caller-controlled identity headers or copy browser cookies between independent applications.
-
-The standalone product retains its existing pairing by default. Harbor may use its own grant store through an adapter when implemented. That does not migrate existing paired browsers automatically. Safari and a Home Screen application can be distinct credential contexts. The current credential is an HttpOnly bearer cookie, not an SSH-style key.
-
-HTTP cookies are hostname/path scoped, not port scoped. Embedded endpoints need configurable route prefixes, cookie names/paths, Origin policy and storage locations. Browser playback needs an appropriate secure context; Harbor's currently documented HTTP UI is not a completed embedded-viewer deployment. Do not weaken authorization or assume cross-origin cookie federation to make a prototype work.
-
-Detailed device inventory and sessions require scoped visibility; do not add them to broadly readable fleet snapshots by default. Existing `/api/session` describes only the authenticated receiver's own grant, and `/api/status` counts allocated subscriptions including negotiation. Neither proves a person is watching. Runtime lifecycle events should flow into an injected sink so Harbor can retain ledger entries without imposing Postgres on standalone display. Never record credentials, pairing codes, screen contents or raw SDP/ICE in the fleet ledger.
-
-## Delivery responsibilities and acceptance
-
-DisplayOverInternet's next milestone:
-
-1. Extract the proven worker/subscription lifecycle behind a configurable runtime/media adapter, preserving existing standalone pairing and playback.
-2. Add composable ASP.NET endpoints and configurable receiver API addressing, with explicit state/asset paths and authorization boundaries.
-3. Prove a minimal alternate host using the packages and a synthetic source, without running the standalone app or checking out Harbor. Any fixture authorization remains restricted to the test composition/source.
-4. Verify standalone and alternate-host negotiation, playback, capacity and disconnect/revocation cleanup; verify missing/disabled media does not break the parent application.
-5. Provide installable artifacts, dependency/setup instructions, version compatibility and an example consumer before requesting Harbor integration.
-
-Harbor's integration milestone, after those artifacts are ready:
-
-1. Opt in to the supported runtime packages on a target workstation; connect explicit authorization, persistence and event adapters as available.
-2. Wire optional capability observations and the browser SDK into the existing machine/access UX without requiring a second application installation.
-3. Validate disabled/unavailable capability, authorization denial, stale observations, successful decoded video, cleanup and continued inventory operation after media failure.
-
-Choose one active owner for each managed display resource. Running the standalone product and Harbor on the same workstation must not result in both automatically creating/managing the same output. General remote control/RDP remains a separate capability and authentication path.
-
-## Coordination references
-
-The producer is the DisplayOverInternet repository (currently private). These are development references, not runtime requirements.
-
-Relevant producer documents: `docs/COMPOSABLE_RUNTIME.md` (current composition plan), `docs/SDK.md` (implemented library surfaces), and `docs/HARBOR_INTEGRATION.md` (source assessment). Runtime extraction is pending; coordinate against those documents and the actual released artifacts rather than assuming the current feature branch is a stable integration SDK.
-
-This handoff changes documentation only. No Harbor provider, package dependency, endpoint, permission, database migration or service configuration is enabled by it.
+- Tailnet only; nothing is exposed to the internet.
+- No secrets or personal connection details in public repositories. Harbor's repository is public:
+  examples use `<hub>`, `<machine>`, `<tailnet>`, `example.ts.net`.
+- Viewing is view-only. Keyboard, pointer or touch input needs its own explicit, visible, expiring
+  and revocable grant, designed separately.
+- Every pairing code is one-use and short-lived, and is shown only to whoever stands at the machine.
