@@ -24,5 +24,5 @@ let ``nothing to forward without a display entry or a known tailnet name`` () =
 
 [<Fact>]
 let ``machine segments are plain lowercase names`` () =
-    for ok in [ "terra"; "devbox-2"; "pi4" ] do Assert.True(DisplayProxy.isMachineSegment ok, ok)
-    for bad in [ ""; "Terra"; "-x"; "a.b"; "a/b"; ".."; "%2e" ] do Assert.False(DisplayProxy.isMachineSegment bad, bad)
+    for ok in [ "devbox"; "devbox-2"; "pi4" ] do Assert.True(DisplayProxy.isMachineSegment ok, ok)
+    for bad in [ ""; "Devbox"; "-x"; "a.b"; "a/b"; ".."; "%2e" ] do Assert.False(DisplayProxy.isMachineSegment bad, bad)
