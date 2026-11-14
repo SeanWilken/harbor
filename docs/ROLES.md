@@ -72,6 +72,8 @@ The hub refuses a role name that isn't in the machine's latest snapshot, and the
 again. The switch happens even if an action fails, because the role states intent. The job output,
 which only admins see, lists each action as `ok`, `started`, `failed (…)` and so on. Switching to
 the current role runs its actions again, for example to restart something it starts.
+A new switch closes any older switch still waiting for that machine as superseded, so the newest
+request always wins.
 
 The current role is saved on the machine, next to the agent's status file. It survives restarts and
 reboots, and a restart doesn't re-run any actions. If a config edit removes the saved role, the
