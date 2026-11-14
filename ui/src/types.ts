@@ -41,7 +41,8 @@ export type NetInterface = { name: string; kind: "ethernet" | "wifi" | "tailnet"
 export type AccessEntry = { kind: "display" | "rdp"; name?: string; url?: string; host?: string; port?: number };
 /** How much outside work a machine takes in a role: heavy work and inference, small jobs, or none. */
 export type Work = "full" | "light" | "none";
-export type RoleInfo = { name: string; work: Work };
+/** A declared role. start/stop are short duty labels, admin-only (absent for viewers and older agents). */
+export type RoleInfo = { name: string; work: Work; title?: string; description?: string; power?: string; start?: string[]; stop?: string[] };
 /** The machine's current duty (agent config `roles`); viewers see `by` as default/tray/hub and no `applied`. */
 export type RoleState = { name: string; work: Work; since: string; by: string; declared: RoleInfo[]; applied: string[] };
 export type Snapshot = { machine: Machine; repos: Repo[]; services: ServiceStatus[]; resources?: Resources; networks?: NetInterface[]; access?: AccessEntry[]; role?: RoleState };

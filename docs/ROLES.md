@@ -48,6 +48,8 @@ consent; `agent.allow` doesn't need a `role` entry.
 
 | Field | Meaning |
 | --- | --- |
+| `title` | Optional: the card's heading, e.g. "Game streaming". Defaults to the name. |
+| `description` | Optional: one sentence on what the machine is for in this role. |
 | `name` | Lowercase `a-z 0-9 -`, up to 32 characters, unique. *Stable.* |
 | `work` | `full`: spare capacity, so heavy work and inference are welcome. `light`: small jobs only. `none`: takes no outside work. *Stable.* |
 | `power` | Optional: `performance`, `balanced` or `power-saver`. Windows uses `powercfg /setactive` with the built-in schemes; Linux uses `powerprofilesctl set`. |
@@ -83,11 +85,15 @@ machine falls back to the first declared role.
 
 - **Snapshot** (`snapshot.role`, on every push):
   `{ name, work, since, by, declared: [{ name, work }], applied: [lines] }`.
-  `by` is `default`, `tray` or `hub`. Viewers don't see `applied`, and see a hub admin's name as `hub`.
+  Each declared role also carries `title`, `description`, `power`, and `start`/`stop` as short
+  labels (an app's file name, a URL, `unit x`; never a full path). `by` is `default`, `tray` or `hub`. Viewers don't see `applied` or the start/stop labels, and see a hub admin's name as `hub`.
 - **Machine list** (`GET /api/machines`): `role`, `work` and `roleSince` on each machine.
 - **History:** a `role_changed` event when the role changes; the admin who queued it is in the
   `job_requested` audit event. The first report of the default role isn't an event.
-- **UI:** a role panel on the machine card, a chip on the network grid, and the role name on the
+- **UI:** role cards on the machine card, one per declared role, paged left and right (or swiped).
+  Each shows the title, work level and description; **inspect** lists its capabilities, its duties
+  when activated and, for the active role, what the last switch did. Admins activate a role from
+  its card. There is also a chip on the network grid and the role name on the
   map. The tray shows the role under each agent.
 
 ## Availability API (for the rest of the suite)

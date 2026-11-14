@@ -27,7 +27,25 @@ let private save (machine: string) (s: Saved) =
     try AgentStatus.writeAtomic (statePath machine) (JsonSerializer.Serialize(s, Config.jsonOptions))
     with ex -> eprintfn $"role state: {ex.Message}"
 
-let declared (roles: Config.RoleConfig[]) : RoleInfo[] = roles |> Array.map (fun r -> { Name = r.Name; Work = r.Work })
+/// What an action is called on a role card: a URL as is, an app by its file name, a unit by name.
+let actionLabel (a: Config.RoleAction) =
+    match a.Command, a.Unit, a.Process with
+    | Some c, _, _ when c.Contains "://" -> c
+    | Some c, _, _ -> (match Path.GetFileName(c.Replace('\\', '/')) with null | "" -> c | n -> n)
+    | _, Some u, _ -> $"unit {u}"
+    | _, _, Some p -> p
+    | _ -> "?"
+
+let declared (roles: Config.RoleConfig[]) : RoleInfo[] =
+    roles
+    |> Array.map (fun r ->
+        { Name = r.Name
+          Work = r.Work
+          Title = r.Title
+          Description = r.Description
+          Power = r.Power
+          Start = Some(r.Start |> Array.map actionLabel)
+          Stop = Some(r.Stop |> Array.map actionLabel) })
 
 /// The saved role while the config still declares it, else the first declared one (the default).
 let current (roles: Config.RoleConfig[]) (saved: Saved option) (now: DateTimeOffset) : RoleState option =

@@ -27,4 +27,10 @@ let snapshot (s: Snapshot) : Snapshot =
         Resources = s.Resources |> Option.map (fun r -> { r with Top = [||] })
         Networks = s.Networks |> Option.map (Array.map network)
         // the role and its work level are the point; who switched it and what ran are admin detail
-        Role = s.Role |> Option.map (fun r -> { r with By = (if r.By = "default" || r.By = "tray" then r.By else "hub"); Applied = [||] }) }
+        Role =
+            s.Role
+            |> Option.map (fun r ->
+                { r with
+                    By = (if r.By = "default" || r.By = "tray" then r.By else "hub")
+                    Applied = [||]
+                    Declared = r.Declared |> Array.map (fun d -> { d with Start = None; Stop = None }) }) }

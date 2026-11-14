@@ -28,6 +28,10 @@ type RoleAction =
 /// A role from agent config `roles`; the first one is the default.
 type RoleConfig =
     { Name: string
+      /// Shown on the role card; defaults to the name.
+      Title: string option
+      /// A sentence on what the machine is for in this role.
+      Description: string option
       /// "full" | "light" | "none": outside work this machine takes while in the role. "none"
       /// also pauses harbor's own fetches and manifest rebuilds.
       Work: string
@@ -144,6 +148,8 @@ let checkAccess (a: Domain.AccessEntry) : Domain.AccessEntry =
 /// On-disk role; checkRoles turns it into a RoleConfig.
 type RoleFile =
     { Name: string
+      Title: string option
+      Description: string option
       Work: string
       Power: string option
       Start: RoleAction[] option
@@ -169,6 +175,8 @@ let checkRoles (roles: RoleFile[]) : RoleConfig[] =
         if not (Array.contains r.Work workLevels) then failwith $"roles.{r.Name}.work: full, light or none"
         r.Power |> Option.iter (fun p -> if not (Array.contains p powerProfiles) then failwith $"roles.{r.Name}.power: performance, balanced or power-saver")
         ({ Name = r.Name
+           Title = r.Title |> Option.map _.Trim() |> Option.filter ((<>) "")
+           Description = r.Description |> Option.map _.Trim() |> Option.filter ((<>) "")
            Work = r.Work
            Power = r.Power
            Start = r.Start |> Option.defaultValue [||] |> Array.map (checkAction r.Name false)

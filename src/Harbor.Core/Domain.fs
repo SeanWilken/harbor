@@ -156,7 +156,16 @@ type AccessEntry =
 
 /// A role this machine's config declares, and how much outside work it takes while in it:
 /// "full" (spare capacity, heavy work and inference welcome), "light" (small jobs only) or "none".
-type RoleInfo = { Name: string; Work: string }
+/// Title, description and duties were added after v0 (options, so older snapshots still read).
+/// Start and Stop are short labels (an app's file name, a URL, "unit x"), never full paths.
+type RoleInfo =
+    { Name: string
+      Work: string
+      Title: string option
+      Description: string option
+      Power: string option
+      Start: string[] option
+      Stop: string[] option }
 
 /// The machine's current duty: one at a time, switched by a hub admin or at the machine (tray).
 /// A statement other systems can route work by; harbor reports it and doesn't enforce it.

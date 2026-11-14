@@ -12,18 +12,23 @@ let private loadText (json: string) =
     File.WriteAllText(path, json)
     try Config.load (Some path) |> Result.map fst finally File.Delete path
 
-let private role name work : Config.RoleConfig = { Name = name; Work = work; Power = None; Start = [||]; Stop = [||] }
+let private role name work : Config.RoleConfig =
+    { Name = name; Title = None; Description = None; Work = work; Power = None; Start = [||]; Stop = [||] }
+
+let private info name work : RoleInfo =
+    { Name = name; Work = work; Title = None; Description = None; Power = None; Start = None; Stop = None }
 
 [<Fact>]
 let ``roles load from config, first one is the default`` () =
     match loadText """{ "roles": [ { "name": "general", "work": "light" },
-                                     { "name": "gaming", "work": "none", "power": "performance",
+                                     { "name": "gaming", "title": "Game streaming", "work": "none", "power": "performance",
                                        "start": [ { "command": "steam://open/bigpicture" }, { "unit": "sunshine" } ],
                                        "stop": [ { "process": "ollama" } ] } ] }""" with
     | Ok c ->
         Assert.Equal<string[]>([| "general"; "gaming" |], c.Roles |> Array.map _.Name)
         Assert.Equal(Some "performance", c.Roles[1].Power)
         Assert.Equal(2, c.Roles[1].Start.Length)
+        Assert.Equal(Some "Game streaming", c.Roles[1].Title)
     | Error e -> failwith e
 
 [<Theory>]
@@ -91,7 +96,7 @@ let ``a role job runs without an allow entry; other kinds still need one`` () =
 
 [<Fact>]
 let ``the hub only queues declared roles`` () =
-    let declared = [| { RoleInfo.Name = "general"; Work = "light" }; { Name = "gaming"; Work = "none" } |]
+    let declared = [| info "general" "light"; info "gaming" "none" |]
     let job arg path : Hub.JobBody = { Kind = "role"; Path = path; Arg = arg }
     Assert.Equal(Ok(), Hub.checkJob declared (job (Some "gaming") None))
     Assert.True(Result.isError (Hub.checkJob declared (job (Some "media") None)))
@@ -101,7 +106,7 @@ let ``the hub only queues declared roles`` () =
 
 let private state name work by : RoleState =
     { Name = name; Work = work; Since = DateTimeOffset.Now; By = by
-      Declared = [| { Name = "general"; Work = "light" }; { Name = "gaming"; Work = "none" } |]
+      Declared = [| info "general" "light"; { info "gaming" "none" with Start = Some [| "sunshine.exe" |] } |]
       Applied = [| "start C:\\Games\\sunshine.exe: started" |] }
 
 let private snap role : Snapshot =
@@ -119,6 +124,7 @@ let ``viewers see the role but not who switched it or what ran`` () =
     let r = (Redact.snapshot (snap (Some(state "gaming" "none" "admin@example.com")))).Role.Value
     Assert.Equal(("gaming", "hub"), (r.Name, r.By))
     Assert.Empty r.Applied
+    Assert.True(r.Declared |> Array.forall (fun d -> d.Start.IsNone && d.Stop.IsNone))
 
 let private summary name work (lastPush: DateTimeOffset option) connected : Storage.MachineSummary =
     { Id = 1L; Name = name; NodeName = None; Login = None; Os = None; Status = "approved"; Local = false
@@ -137,3 +143,11 @@ let ``availability is the role's work while reachable, none when not`` () =
                summary "pi" None (Some now) true
                { summary "new" (Some "full") (Some now) true with Status = "pending" } |]
     Assert.Equal<(string * string) list>([ "devbox", "full"; "gamebox", "none"; "pi", "unknown" ], rows |> Array.map (fun r -> r.Machine, r.Available) |> List.ofArray)
+
+[<Fact>]
+let ``role cards name actions without full paths`` () =
+    let act c u p : Config.RoleAction = { Command = c; Args = None; Unit = u; Process = p }
+    Assert.Equal("sunshine.exe", Roles.actionLabel (act (Some "C:\\Program Files\\Sunshine\\sunshine.exe") None None))
+    Assert.Equal("steam://open/bigpicture", Roles.actionLabel (act (Some "steam://open/bigpicture") None None))
+    Assert.Equal("unit jellyfin", Roles.actionLabel (act None (Some "jellyfin") None))
+    Assert.Equal("ollama", Roles.actionLabel (act None None (Some "ollama")))
