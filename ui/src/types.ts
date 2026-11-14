@@ -62,6 +62,13 @@ export type MachineSummary = {
   update?: { behind: number; latest: string; latestAt: string };
   role?: string; work?: Work; roleSince?: string;
 };
+/** One check of a site from the hub (src/Harbor/Sites.fs). */
+export type SiteCheck = { site: string; at: string; ok: boolean; status?: number; ms?: number; error?: string; certExpires?: string; certIssuer?: string; version?: string };
+export type SiteSummary = {
+  name: string; url: string; provider?: string; everyMinutes: number; last?: SiteCheck;
+  uptime?: number; avgMs?: number; since?: string; certDays?: number;
+  points: { at: string; ok: boolean; ms?: number }[];
+};
 export type JobInfo = {
   id: number; kind: string; path?: string; requestedAt: string; requestedBy: string;
   sentAt?: string; finishedAt?: string; ok?: boolean; output?: string; arg?: string;

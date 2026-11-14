@@ -629,6 +629,88 @@ module ``public`` =
 
     let service = table<service>
 
+    type site_check =
+        { [<ProviderDbType("Bigint")>]
+          id: int64
+          [<ProviderDbType("Text")>]
+          site: string
+          [<ProviderDbType("TimestampTz")>]
+          checked_at: System.DateTime
+          [<ProviderDbType("Boolean")>]
+          ok: bool
+          [<ProviderDbType("Integer")>]
+          status: Option<int>
+          [<ProviderDbType("Integer")>]
+          ms: Option<int>
+          [<ProviderDbType("Text")>]
+          error: Option<string>
+          [<ProviderDbType("TimestampTz")>]
+          cert_expires: Option<System.DateTime>
+          [<ProviderDbType("Text")>]
+          cert_issuer: Option<string>
+          [<ProviderDbType("Text")>]
+          version: Option<string> }
+
+        interface IHasWrite<site_check_write> with
+            /// This row's writable columns, as `writeEntity` takes them: `toWrite row`.
+            member this.ToWrite() : site_check_write =
+                { site = this.site
+                  checked_at = this.checked_at
+                  ok = this.ok
+                  status = this.status
+                  ms = this.ms
+                  error = this.error
+                  cert_expires = this.cert_expires
+                  cert_issuer = this.cert_issuer
+                  version = this.version }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "site"; Value = box this.site; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "checked_at"; Value = box this.checked_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "ok"; Value = box this.ok; ProviderDbType = Some "Boolean" }
+                  { WriteColumn.Name = "status"; Value = box this.status; ProviderDbType = Some "Integer" }
+                  { WriteColumn.Name = "ms"; Value = box this.ms; ProviderDbType = Some "Integer" }
+                  { WriteColumn.Name = "error"; Value = box this.error; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "cert_expires"; Value = box this.cert_expires; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "cert_issuer"; Value = box this.cert_issuer; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "version"; Value = box this.version; ProviderDbType = Some "Text" } ]
+
+    /// The columns of `site_check` a caller may write; the database owns the rest.
+    and site_check_write =
+        { [<ProviderDbType("Text")>]
+          site: string
+          [<ProviderDbType("TimestampTz")>]
+          checked_at: System.DateTime
+          [<ProviderDbType("Boolean")>]
+          ok: bool
+          [<ProviderDbType("Integer")>]
+          status: Option<int>
+          [<ProviderDbType("Integer")>]
+          ms: Option<int>
+          [<ProviderDbType("Text")>]
+          error: Option<string>
+          [<ProviderDbType("TimestampTz")>]
+          cert_expires: Option<System.DateTime>
+          [<ProviderDbType("Text")>]
+          cert_issuer: Option<string>
+          [<ProviderDbType("Text")>]
+          version: Option<string> }
+
+        interface IWriteOf<site_check> with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "site"; Value = box this.site; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "checked_at"; Value = box this.checked_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "ok"; Value = box this.ok; ProviderDbType = Some "Boolean" }
+                  { WriteColumn.Name = "status"; Value = box this.status; ProviderDbType = Some "Integer" }
+                  { WriteColumn.Name = "ms"; Value = box this.ms; ProviderDbType = Some "Integer" }
+                  { WriteColumn.Name = "error"; Value = box this.error; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "cert_expires"; Value = box this.cert_expires; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "cert_issuer"; Value = box this.cert_issuer; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "version"; Value = box this.version; ProviderDbType = Some "Text" } ]
+
+    let site_check = table<site_check>
+
     type snapshot_latest =
         { [<ProviderDbType("Bigint")>]
           machine_id: int64

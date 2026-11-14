@@ -170,6 +170,16 @@ Admins switch from the machine card, anyone at the machine from the tray's Role 
 `GET /api/availability` tells the rest of the suite which machines take work right now; offline
 means none. See [docs/ROLES.md](docs/ROLES.md), a living draft.
 
+## Sites
+
+Websites outside the tailnet (on DigitalOcean or any other host) are listed in the hub config under
+`hub.sites` and checked from the hub every few minutes (`everyMinutes`, default 5): whether they
+answer below HTTP 400 (after up to 5 redirects) with a trusted certificate, how fast, when the
+certificate expires, and, if `health` names an endpoint, the version it reports (a top-level
+`version`/`commit`/`sha`/`build` field, or a short plain-text body). No credentials and nothing
+installed on the host. Network → **sites** shows each one with its last day: uptime, average
+response time and a latency trend. Admins can **check now**. Checks are kept 30 days.
+
 ## Manifests and recaps
 
 Each agent builds a **manifest** after its first scan and every `manifestHours` (default 6): OS and

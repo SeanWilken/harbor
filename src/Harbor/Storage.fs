@@ -1027,8 +1027,43 @@ type Db(connectionString: string) =
                 let! diffs = run "diff output" "update job set output = null where kind = 'diff' and output is not null and finished_at < now() - interval '1 day'"
                 let! recaps = run "recaps" "delete from recap where id not in (select id from recap order by period_end desc limit 52)"
                 let! codes = run "pairing codes" "delete from pairing_code where used_at is null and expires_at < now() - interval '1 day'"
-                return [ events; manifests; jobs; diffs; recaps; codes ] |> List.filter (fun (_, n) -> n > 0)
+                let! checks = run "site checks" "delete from site_check where checked_at < now() - interval '30 days'"
+                return [ events; manifests; jobs; diffs; recaps; codes; checks ] |> List.filter (fun (_, n) -> n > 0)
             })
+
+    member _.SaveCheck(c: Sites.Check) : Task<unit> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let! _ =
+                insertTask ctx {
+                    for x in site_check do
+                    writeEntity
+                        { site = c.Site
+                          checked_at = utc c.At
+                          ok = c.Ok
+                          status = c.Status
+                          ms = c.Ms
+                          error = c.Error
+                          cert_expires = c.CertExpires |> Option.map utc
+                          cert_issuer = c.CertIssuer
+                          version = c.Version }
+                }
+            ()
+        }
+
+    /// Every site's checks since `since`, oldest first.
+    member _.SiteChecks(since: DateTimeOffset) : Task<Sites.Check[]> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let from = utc since
+            let! rows = selectTask ctx { for x in site_check do where (x.checked_at >= from); orderBy x.checked_at; thenBy x.id }
+            return
+                rows
+                |> Seq.map (fun x ->
+                    ({ Site = x.site; At = dto x.checked_at; Ok = x.ok; Status = x.status; Ms = x.ms; Error = x.error
+                       CertExpires = x.cert_expires |> Option.map dto; CertIssuer = x.cert_issuer; Version = x.version }: Sites.Check))
+                |> Seq.toArray
+        }
 
     /// (node id, name): the key agent links and wakes use.
     member _.MachineKey(machineId: int64) : Task<(string * string) option> =

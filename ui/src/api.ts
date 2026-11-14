@@ -1,4 +1,4 @@
-import type { JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot } from "./types";
+import type { JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot, SiteSummary } from "./types";
 
 async function get<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -35,6 +35,8 @@ export const requestDiff = async (id: number, path: string, arg: string): Promis
 };
 /** Switch a machine to one of the roles its config declares (admins; runs that role's actions there). */
 export const requestRole = (id: number, role: string) => post(`/api/machines/${id}/jobs`, { kind: "role", arg: role });
+export const fetchSites = () => get<SiteSummary[]>("/api/sites");
+export const checkSitesNow = () => post("/api/sites/check");
 export const requestPull = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "pull", path });
 export const setHidden = (id: number, path: string, hidden: boolean) => post(`/api/machines/${id}/hidden`, { path, hidden });
 export const fetchMe = () => get<Me>("/api/me");

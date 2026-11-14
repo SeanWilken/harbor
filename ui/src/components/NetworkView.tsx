@@ -7,10 +7,11 @@ import { SharedView } from "./SharedView";
 import { CompareView } from "./CompareView";
 import { RecapView } from "./RecapView";
 import { WorkView } from "./WorkView";
+import { SitesView } from "./SitesView";
 import { workText } from "./RoleBar";
 
-export type NetView = "grid" | "map" | "repos" | "work" | "compare" | "recap";
-export const NET_VIEWS: NetView[] = ["grid", "map", "repos", "work", "compare", "recap"];
+export type NetView = "grid" | "map" | "repos" | "work" | "sites" | "compare" | "recap";
+export const NET_VIEWS: NetView[] = ["grid", "map", "repos", "work", "sites", "compare", "recap"];
 
 type Props = {
   machines: MachineSummary[];
@@ -57,6 +58,7 @@ export function NetworkView({ machines, shared, admin, view, pins, selfId, now, 
       {view === "map" && <NetMap machines={shown} now={now} onOpen={onOpen} />}
       {view === "repos" && <SharedView groups={shared} now={now} onPull={onPullCopies} />}
       {view === "work" && <WorkView machines={machines} admin={admin} now={now} />}
+      {view === "sites" && <SitesView admin={admin} now={now} />}
       {view === "compare" && <CompareView machines={machines} admin={admin} />}
       {view === "recap" && <RecapView now={now} />}
     </>

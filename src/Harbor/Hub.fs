@@ -224,7 +224,25 @@ let pruneLoop (db: Storage.Db) (stop: Threading.CancellationToken) : Task =
 
 let private wantsMarkdown (ctx: HttpContext) = ctx.Request.Query["format"].ToString() = "md"
 /// `agentUrl`: where agents should push (the hub's first tailnet IPv4 URL), shown when pairing.
-let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) (browserUrl: string option) =
+let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) (browserUrl: string option) (sites: Sites.Checker) =
+    // ---- sites: public websites checked from outside, on any host ----
+    app.MapGet("/api/sites", Func<Task<IResult>>(fun () ->
+        task {
+            let now = DateTimeOffset.Now
+            let! checks = db.SiteChecks(now.AddDays -1.)
+            let bySite = checks |> Array.groupBy _.Site |> Map.ofArray
+            let rows = sites.Sites |> Array.map (fun s -> Sites.summarize now s (bySite.TryFind s.Name |> Option.defaultValue [||]))
+            return Results.Json(rows, Config.jsonOptions)
+        })) |> ignore
+
+    app.MapPost("/api/sites/check", Func<HttpContext, Task<IResult>>(fun ctx ->
+        task {
+            if not (isAdmin ctx) then return problem 403 "only hub admins can run site checks"
+            else
+                do! sites.Now()
+                return Results.NoContent()
+        })) |> ignore
+
     app.Map(AgentLink.path, RequestDelegate(fun ctx ->
         task {
             match caller ctx with

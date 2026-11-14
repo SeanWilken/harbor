@@ -413,6 +413,29 @@ pre.diff .d-del { color: var(--danger); background: #e48a7a12; }
 .mini-name .role-chip.w-none { color: var(--warn); }
 .mini-name .role-chip.w-full { color: var(--ok); }
 
+/* sites: public websites checked from the hub */
+.sites { padding: 0 0 8px; }
+.sites-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 var(--gutter) 10px; font: 12px var(--mono); }
+.site-group > .label { padding: 6px var(--gutter) 0; }
+.site { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px;
+        background: var(--well); color: inherit; text-decoration: none; transition: border-color .16s, background-color .16s, transform .2s var(--ease); }
+.site:hover { border-color: var(--line2); background: var(--raise); transform: translateY(-2px); }
+.site.down { border-color: #e48a7a55; }
+.site-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font: 11px var(--mono); min-width: 0; }
+.site-top .dim2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-name { display: inline-flex; align-items: center; gap: 8px; font: 400 17px var(--sans); letter-spacing: .03em; color: var(--fg); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.site-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-state { display: flex; align-items: baseline; gap: 10px; font: 12px var(--mono); min-width: 0; }
+.site-state b { font: 300 24px var(--sans); }
+.site-state b.danger-text { font: 13px var(--mono); overflow-wrap: anywhere; }
+.site .row { display: flex; justify-content: space-between; gap: 8px; font: 11px var(--mono); color: var(--dim1); }
+.site .row b { color: var(--fg); font-weight: 400; }
+.spark { width: 100%; height: 36px; display: block; }
+.spark polyline { fill: none; stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.spark .down { fill: var(--danger); }
+.danger-text { color: var(--danger); }
+.empty code { font: 12px var(--mono); color: var(--fg); overflow-wrap: anywhere; }
+
 /* motion: small and quick; none at all when the system asks for less */
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 #bed6a766; } 70%, 100% { box-shadow: 0 0 0 7px #bed6a700; } }

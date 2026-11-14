@@ -56,6 +56,16 @@ type RecapConfig =
 
 let defaultRecap = { NeglectedDays = 30; DirtyDays = 7; BehindDays = 7; Weekday = DayOfWeek.Monday }
 
+/// A website the hub checks from outside (hub.sites): anything with a public URL, on any host.
+type SiteConfig =
+    { Name: string
+      Url: string
+      /// A free label to group by, e.g. "digitalocean".
+      Provider: string option
+      /// Optional health or version endpoint (absolute, or a path on Url); its version is shown.
+      Health: string option
+      EveryMinutes: int }
+
 type HubConfig =
     { Database: string
       /// Tailscale logins allowed to approve/reject machines from the tailnet (loopback always can).
@@ -73,7 +83,8 @@ type HubConfig =
       BrowserUrl: string option
       Recap: RecapConfig
       /// tailscaled's LocalAPI socket; found automatically when unset.
-      TailscaleSocket: string option }
+      TailscaleSocket: string option
+      Sites: SiteConfig[] }
 
 type Config =
     { Listen: string
@@ -122,6 +133,41 @@ let private recapOf (file: RecapFile option) : RecapConfig =
                 | true, day -> day
                 | _ -> failwith $"hub.recap.weekday: not a day of the week: {d}" }
 
+type SiteFile =
+    { Name: string
+      Url: string
+      Provider: string option
+      Health: string option
+      EveryMinutes: int option }
+
+let private webUri (u: string) =
+    match Uri.TryCreate(u, UriKind.Absolute) with
+    | true, NonNull uri when (uri.Scheme = "https" || uri.Scheme = "http") && uri.UserInfo = "" -> Some uri
+    | _ -> None
+
+/// Names unique, URLs plain http(s) without credentials, health resolvable against the URL,
+/// checks no more often than every minute.
+let checkSites (sites: SiteFile[]) : SiteConfig[] =
+    let checkedSites =
+        sites
+        |> Array.map (fun (s: SiteFile) ->
+            if String.IsNullOrWhiteSpace s.Name then failwith "hub.sites: every site needs a name"
+            let url = match webUri s.Url with Some u -> u | None -> failwith $"hub.sites.{s.Name}: url must be http(s), without user:password"
+            let health =
+                s.Health
+                |> Option.map (fun h ->
+                    match Uri.TryCreate(url, h) with
+                    | true, NonNull u when webUri (string u) |> Option.isSome -> string u
+                    | _ -> failwith $"hub.sites.{s.Name}: health must be a path or an http(s) URL")
+            ({ Name = s.Name.Trim()
+               Url = string url
+               Provider = s.Provider |> Option.map _.Trim() |> Option.filter ((<>) "")
+               Health = health
+               EveryMinutes = max 1 (defaultArg s.EveryMinutes 5) }: SiteConfig))
+    match checkedSites |> Array.countBy _.Name |> Array.tryFind (fun (_, n) -> n > 1) with
+    | Some(n, _) -> failwith $"hub.sites: '{n}' is listed twice"
+    | None -> checkedSites
+
 type private HubFile =
     { Database: string
       Admins: string[] option
@@ -130,7 +176,8 @@ type private HubFile =
       ServeListen: string option
       BrowserUrl: string option
       Recap: RecapFile option
-      TailscaleSocket: string option }
+      TailscaleSocket: string option
+      Sites: SiteFile[] option }
 
 /// display entries need an http(s) URL, rdp entries a host; anything else is a config error.
 let checkAccess (a: Domain.AccessEntry) : Domain.AccessEntry =
@@ -293,7 +340,8 @@ let load (explicitPath: string option) : Result<Config * string option, string> 
                           ServeListen = h.ServeListen
                           BrowserUrl = h.BrowserUrl |> Option.map (fun u -> u.TrimEnd '/')
                           Recap = recapOf h.Recap
-                          TailscaleSocket = h.TailscaleSocket }) }
+                          TailscaleSocket = h.TailscaleSocket
+                          Sites = h.Sites |> Option.defaultValue [||] |> checkSites }) }
             Ok(c, Some path)
         with ex ->
             Error $"{path}: {ex.Message}"

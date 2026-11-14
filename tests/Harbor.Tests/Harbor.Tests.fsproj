@@ -18,6 +18,7 @@
     <Compile Include="DisplayProxyTests.fs" />
     <Compile Include="InFlightTests.fs" />
     <Compile Include="RolesTests.fs" />
+    <Compile Include="SitesTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

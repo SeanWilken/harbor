@@ -130,7 +130,9 @@ let private runHub argv (cfg: Config) (hub: HubConfig) (withAgent: bool) =
             let browserUrl =
                 hub.BrowserUrl
                 |> Option.orElse (if serve.IsSome then selfDns |> Option.map (fun d -> $"https://{d}:7443") else None)
-            Hub.mapApi app db links hub.Recap agentUrl browserUrl
+            let sites = Sites.Checker(hub.Sites, db.SaveCheck)
+            Hub.mapApi app db links hub.Recap agentUrl browserUrl sites
+            sites.Loop app.Lifetime.ApplicationStopping |> ignore
             DisplayProxy.map app (DisplayProxy.Resolver(db, selfDns))
             Hub.recapLoop db hub.Recap app.Lifetime.ApplicationStopping |> ignore
             Hub.pruneLoop db app.Lifetime.ApplicationStopping |> ignore
