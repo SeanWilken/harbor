@@ -48,7 +48,8 @@ only learns of new commits when a machine with a clone rescans) and runs
 installer again (config kept). **Sync now** (tray) and **sync** (web header, key `S`) make every
 linked machine rescan and report at once, so the hub knows of a fresh commit right away; the tray
 also syncs its own machine when the hub refuses it. **Restart agent** restarts the agent alone; **Quit** stops the tray
-and the agent. **Start at login** toggles the Startup shortcut.
+and the agent. **Start at login** toggles the Startup shortcut. **Role** (when the config declares
+`roles`) switches this machine's role; see [ROLES.md](ROLES.md).
 
 ## 4. Linux machines and the Raspberry Pi (agent only)
 
@@ -105,4 +106,6 @@ Windows asks for its own sign-in, and the PC needs Remote Desktop turned on (Win
   Windows).
 - The tray icon on Raspberry Pi OS's panel.
 - The `rdp://` link on iPad's Windows App, and dragging tabs to reorder on iPad Safari.
+- Role actions on Windows: `powercfg /setactive` as a standard user, starting apps and `steam://` URLs
+  from the agent, and closing apps by their main window.
 - The `/display/<machine>/` pass-through end to end (pairing and the signaling WebSocket) against a mounted viewer.

@@ -64,10 +64,18 @@ let pullResult (path: string option) (results: (string * Inventory.PullOutcome)[
     not failed && not skippedOne, summary
 
 /// Run one job if this machine allows its kind. Never throws: failures become a failed result.
-let runJob (store: Inventory.Store) (allow: string[]) (job: JobRequest) : Task<JobResult> =
+/// A role switch needs no `allow` entry: declaring roles in the config is the consent, and the
+/// hub only asks for one by a declared name.
+let runJob (store: Inventory.Store) (allow: string[]) (roles: Roles.Controller) (job: JobRequest) : Task<JobResult> =
     task {
         let finish ok output = { Id = job.Id; Ok = ok; Output = output; FinishedAt = DateTimeOffset.Now }
-        if not (Array.contains job.Kind allow) then
+        if job.Kind = "role" then
+            match job.Arg with
+            | Some name ->
+                let! ok, output = roles.Switch(name, "hub")
+                return finish ok output
+            | None -> return finish false "a role switch needs a role name"
+        elif not (Array.contains job.Kind allow) then
             return finish false $"'{job.Kind}' is not allowed on this machine (agent.allow)"
         else
             try
@@ -111,7 +119,7 @@ type Waker() =
             tcs <- TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
             t.TrySetResult() |> ignore)
 
-let run (store: Inventory.Store) (name: string) (pushSeconds: int) (allow: string[]) (waker: Waker) (sink: Sink) (reporter: AgentStatus.Reporter) (stop: CancellationToken) : Task =
+let run (store: Inventory.Store) (roles: Roles.Controller) (name: string) (pushSeconds: int) (allow: string[]) (waker: Waker) (sink: Sink) (reporter: AgentStatus.Reporter) (stop: CancellationToken) : Task =
     task {
         let period = TimeSpan.FromSeconds(float (max 10 pushSeconds))
         let gate = obj ()
@@ -123,7 +131,7 @@ let run (store: Inventory.Store) (name: string) (pushSeconds: int) (allow: strin
         let mutable hubManifest: string option = None // hash the hub says it holds
         let start (job: JobRequest) =
             task {
-                let! r = runJob store allow job
+                let! r = runJob store allow roles job
                 lock gate (fun () -> results <- r :: results)
                 waker.Wake()
             }
@@ -133,6 +141,7 @@ let run (store: Inventory.Store) (name: string) (pushSeconds: int) (allow: strin
             let nextScan = store.NextScan
             let woken = waker.Next
             let! snap = store.Snapshot()
+            let snap = { snap with Role = roles.State }
             let sending = lock gate (fun () -> results)
             let push =
                 { Version = 1
@@ -179,24 +188,26 @@ let run (store: Inventory.Store) (name: string) (pushSeconds: int) (allow: strin
                 ()
     }
 
-/// `git fetch` every fetchable repo after the first scan, then every `minutes`.
-let fetchLoop (store: Inventory.Store) (minutes: int) (stop: CancellationToken) : Task =
+/// `git fetch` every fetchable repo after the first scan, then every `minutes`; skipped while
+/// `quiet` (a role that takes no work: harbor keeps its own network and disk use down too).
+let fetchLoop (store: Inventory.Store) (minutes: int) (quiet: unit -> bool) (stop: CancellationToken) : Task =
     task {
         if minutes > 0 then
             try
                 do! store.NextScan.WaitAsync stop
                 while not stop.IsCancellationRequested do
-                    match! store.Fetch None with
-                    | Ok [||] -> ()
-                    | Ok failed -> eprintfn $"fetch: {failed.Length} repo(s) failed, e.g. {fst failed[0]}: {snd failed[0]}"
-                    | Error e -> eprintfn $"fetch: {e}"
+                    if not (quiet ()) then
+                        match! store.Fetch None with
+                        | Ok [||] -> ()
+                        | Ok failed -> eprintfn $"fetch: {failed.Length} repo(s) failed, e.g. {fst failed[0]}: {snd failed[0]}"
+                        | Error e -> eprintfn $"fetch: {e}"
                     do! Task.Delay(TimeSpan.FromMinutes(float minutes), stop)
             with :? OperationCanceledException ->
                 ()
     }
 
 /// Rebuild the manifest after the first scan, then every `hours`; wake the push loop when it changed.
-let manifestLoop (store: Inventory.Store) (hours: int) (waker: Waker) (stop: CancellationToken) : Task =
+let manifestLoop (store: Inventory.Store) (hours: int) (quiet: unit -> bool) (waker: Waker) (stop: CancellationToken) : Task =
     task {
         if hours > 0 then
             try
@@ -204,8 +215,9 @@ let manifestLoop (store: Inventory.Store) (hours: int) (waker: Waker) (stop: Can
                 while not stop.IsCancellationRequested do
                     let before = store.Manifest |> Option.map _.Hash
                     try
-                        let! m = store.RefreshManifest()
-                        if before <> Some m.Hash then waker.Wake()
+                        if not (quiet ()) || store.Manifest.IsNone then
+                            let! m = store.RefreshManifest()
+                            if before <> Some m.Hash then waker.Wake()
                     with ex ->
                         eprintfn $"manifest: {ex.Message}"
                     do! Task.Delay(TimeSpan.FromHours(float hours), stop)
@@ -228,17 +240,37 @@ let rescanLoop (store: Inventory.Store) (stop: CancellationToken) : Task =
                 ()
     }
 
-/// Everything an agent runs: rescans, fetches, manifests and the push loop. Returns the store and
-/// the status reporter (give its Linked to the hub link).
+/// The tray's role menu leaves a request file; switch to it and push the new role at once.
+let roleRequests (machine: string) (roles: Roles.Controller) (waker: Waker) (stop: CancellationToken) : Task =
+    task {
+        AgentStatus.takeRoleRequest machine |> ignore // one left from before this start is stale
+        while not stop.IsCancellationRequested do
+            do! Task.Delay(TimeSpan.FromSeconds 2., stop).ContinueWith(fun (_: Task) -> ())
+            match AgentStatus.takeRoleRequest machine with
+            | Some name ->
+                let! ok, output = roles.Switch(name, "tray")
+                let note = if ok then "" else " (not everything worked)"
+                eprintfn "role from the tray: %s%s" (output.Replace('\n', ';')) note
+                waker.Wake()
+            | None -> ()
+    }
+
+/// Everything an agent runs: rescans, fetches, manifests, role requests and the push loop. Returns
+/// the store and the status reporter (give its Linked to the hub link).
 let start (cfg: Config.Config) (waker: Waker) (sink: Sink) (stop: CancellationToken) : Inventory.Store * AgentStatus.Reporter =
     let store = Inventory.Store cfg
     let pushSeconds = cfg.Agent |> Option.map _.PushSeconds |> Option.defaultValue 300
     let reporter = AgentStatus.Reporter(cfg.Machine, (cfg.Agent |> Option.map _.Hub |> Option.defaultValue "local"), pushSeconds)
     let allow = cfg.Agent |> Option.map _.Allow |> Option.defaultValue Config.defaultAllow
+    let roles = Roles.Controller(cfg.Machine, cfg.Roles)
+    reporter.Role roles.State
+    roles.Changed.Add reporter.Role
+    let quiet () = roles.Quiet
     rescanLoop store stop |> ignore
-    fetchLoop store cfg.FetchMinutes stop |> ignore
-    manifestLoop store cfg.ManifestHours waker stop |> ignore
-    run store cfg.Machine pushSeconds allow waker sink reporter stop |> ignore
+    fetchLoop store cfg.FetchMinutes quiet stop |> ignore
+    manifestLoop store cfg.ManifestHours quiet waker stop |> ignore
+    roleRequests cfg.Machine roles waker stop |> ignore
+    run store roles cfg.Machine pushSeconds allow waker sink reporter stop |> ignore
     store, reporter
 
 /// What a hub wake asks for. A refresh rescans first; the push follows the scan by itself.

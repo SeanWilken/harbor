@@ -16,6 +16,26 @@ type Check =
 
 type ServiceConfig = { Name: string; Check: Check }
 
+/// Something a role starts or stops when you switch into it. Exactly one of command (an app,
+/// file or URL, opened like a double-click; skipped when a process of that name already runs),
+/// unit (a systemd user unit) or process (stop only: asked to close, never killed).
+type RoleAction =
+    { Command: string option
+      Args: string[] option
+      Unit: string option
+      Process: string option }
+
+/// A role from agent config `roles`; the first one is the default.
+type RoleConfig =
+    { Name: string
+      /// "full" | "light" | "none": outside work this machine takes while in the role. "none"
+      /// also pauses harbor's own fetches and manifest rebuilds.
+      Work: string
+      /// "performance" | "balanced" | "power-saver"
+      Power: string option
+      Start: RoleAction[]
+      Stop: RoleAction[] }
+
 /// Where an agent pushes, and how often (it also pushes after every rescan).
 type AgentConfig =
     { Hub: string
@@ -68,6 +88,8 @@ type Config =
       Services: ServiceConfig[]
       /// Desktop viewer pages and RDP hosts for this machine, shown on its card.
       Access: Domain.AccessEntry[]
+      /// What this machine can be switched between; empty = no roles.
+      Roles: RoleConfig[]
       Agent: AgentConfig option
       Hub: HubConfig option }
 
@@ -119,6 +141,43 @@ let checkAccess (a: Domain.AccessEntry) : Domain.AccessEntry =
     | "rdp" -> failwith "access: an \"rdp\" entry needs a \"host\""
     | k -> failwith $"access: unknown kind '{k}' (display or rdp)"
 
+/// On-disk role; checkRoles turns it into a RoleConfig.
+type RoleFile =
+    { Name: string
+      Work: string
+      Power: string option
+      Start: RoleAction[] option
+      Stop: RoleAction[] option }
+
+let workLevels = [| "full"; "light"; "none" |]
+let powerProfiles = [| "performance"; "balanced"; "power-saver" |]
+let isRoleName (s: string) = Text.RegularExpressions.Regex.IsMatch(s, "^[a-z0-9][a-z0-9-]{0,31}$")
+
+let private checkAction (role: string) (stopping: bool) (a: RoleAction) =
+    let set = [ a.Command.IsSome; a.Unit.IsSome; a.Process.IsSome ] |> List.filter id |> List.length
+    let where = if stopping then "stop" else "start"
+    if set <> 1 then failwith $"roles.{role}.{where}: each entry needs exactly one of command, unit or process"
+    if stopping && a.Command.IsSome then failwith $"roles.{role}.stop: use process or unit, not command"
+    if not stopping && a.Process.IsSome then failwith $"roles.{role}.start: use command or unit, not process"
+    a
+
+/// Names are lowercase and unique, work and power from the fixed lists, actions well formed.
+let checkRoles (roles: RoleFile[]) : RoleConfig[] =
+    roles
+    |> Array.map (fun (r: RoleFile) ->
+        if not (isRoleName r.Name) then failwith $"roles: '{r.Name}' isn't a role name (lowercase a-z, 0-9, -)"
+        if not (Array.contains r.Work workLevels) then failwith $"roles.{r.Name}.work: full, light or none"
+        r.Power |> Option.iter (fun p -> if not (Array.contains p powerProfiles) then failwith $"roles.{r.Name}.power: performance, balanced or power-saver")
+        ({ Name = r.Name
+           Work = r.Work
+           Power = r.Power
+           Start = r.Start |> Option.defaultValue [||] |> Array.map (checkAction r.Name false)
+           Stop = r.Stop |> Option.defaultValue [||] |> Array.map (checkAction r.Name true) }: RoleConfig))
+    |> fun (rs: RoleConfig[]) ->
+        match rs |> Array.countBy _.Name |> Array.tryFind (fun (_, n) -> n > 1) with
+        | Some(name, _) -> failwith $"roles: '{name}' is declared twice"
+        | None -> rs
+
 type private ConfigFile =
     { Listen: string option
       Machine: string option
@@ -131,6 +190,7 @@ type private ConfigFile =
       ManifestHours: int option
       Services: ServiceConfig[] option
       Access: Domain.AccessEntry[] option
+      Roles: RoleFile[] option
       Agent: AgentFile option
       Hub: HubFile option }
 
@@ -154,6 +214,7 @@ let defaults: Config =
       ManifestHours = 24
       Services = [||]
       Access = [||]
+      Roles = [||]
       Agent = None
       Hub = None }
 
@@ -207,6 +268,7 @@ let load (explicitPath: string option) : Result<Config * string option, string> 
                   ManifestHours = pick f.ManifestHours defaults.ManifestHours
                   Services = pick f.Services defaults.Services
                   Access = pick f.Access [||] |> Array.map checkAccess
+                  Roles = pick f.Roles [||] |> checkRoles
                   Agent =
                     f.Agent
                     |> Option.map (fun a ->

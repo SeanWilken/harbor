@@ -3,6 +3,7 @@ import { ago, bytes, duration } from "../format";
 import { activity, fullestDisk, isDirty, liveness, memPercent, oldestFetch, primaryAddress } from "../status";
 import { Pill } from "./Pill";
 import { AccessTiles } from "./AccessTiles";
+import { RoleBar } from "./RoleBar";
 
 type Props = {
   summary: MachineSummary;
@@ -18,6 +19,9 @@ type Props = {
   /** Only the hub's own machine can be rescanned on demand. */
   onScan?: () => void;
   scanning: boolean;
+  /** Admins on an approved machine: switch to a declared role. */
+  onRole?: (name: string) => void;
+  switchingRole?: string;
 };
 
 /** A big figure with its label; `of` adds a quiet denominator and a bar. */
@@ -104,7 +108,7 @@ function TopProcesses({ r }: { r: Resources }) {
 }
 
 /** The top of a machine's card: identity and connection, headline figures, access and actions. */
-export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fetchingAll, onPullAll, pullingAll, onScan, scanning }: Props) {
+export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fetchingAll, onPullAll, pullingAll, onScan, scanning, onRole, switchingRole }: Props) {
   const repos = snap.repos.filter((r) => !summary.hidden.includes(r.path));
   const up = snap.services.filter((s) => s.state === "running").length;
   const fetched = oldestFetch(repos);
@@ -144,6 +148,7 @@ export function MachinePanel({ summary, snap, now, pinned, onPin, onFetchAll, fe
         {res ? <ResourceFigures r={res} /> : <RepoFigures repos={repos} up={up} total={snap.services.length} />}
       </div>
       <div className="side">
+        <RoleBar machine={summary.name} role={snap.role} now={now} onSwitch={onRole} switching={switchingRole} />
         <AccessTiles machine={summary.name} access={snap.access} />
         {res && <TopProcesses r={res} />}
         {(onFetchAll || onScan) && (

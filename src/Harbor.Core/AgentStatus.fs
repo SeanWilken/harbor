@@ -22,6 +22,10 @@ type Status =
       /// This agent's harbor build, and newer commits the hub knows of (None = up to date or unknown).
       Commit: string option
       Update: Domain.HarborUpdate option
+      /// The current role and its work level, and the roles the tray may switch to (None = none declared).
+      Role: string option
+      Work: string option
+      Roles: string[] option
       UpdatedAt: DateTimeOffset }
 
 /// ~/.local/state/harbor (XDG_STATE_HOME) on Linux, %LOCALAPPDATA%\harbor on Windows.
@@ -34,12 +38,12 @@ let directory () =
             | d -> d
     Path.Combine(root, "harbor")
 
-let private safe (machine: string) = String(machine |> Seq.map (fun c -> if Char.IsLetterOrDigit c || c = '-' then c else '_') |> Array.ofSeq)
+let safe (machine: string) = String(machine |> Seq.map (fun c -> if Char.IsLetterOrDigit c || c = '-' then c else '_') |> Array.ofSeq)
 let statusPath (machine: string) = Path.Combine(directory (), $"status-{safe machine}.json")
 let pairPath (machine: string) = Path.Combine(directory (), $"pair-{safe machine}.txt")
 
 /// Write via a temp file and rename, so a reader never sees half a file.
-let private writeAtomic (path: string) (text: string) =
+let writeAtomic (path: string) (text: string) =
     Directory.CreateDirectory(Path.GetDirectoryName path |> nonNull) |> ignore
     let tmp = path + ".tmp"
     File.WriteAllText(tmp, text)
@@ -90,7 +94,7 @@ type Reporter(machine: string, hub: string, pushSeconds: int) =
     let mutable current =
         { Machine = machine; Hub = hub; HubStatus = "unknown"; Linked = (hub = "local"); LastPushAt = None
           LastError = None; Pairing = false; PushSeconds = pushSeconds; Commit = BuildInfo.commit; Update = None
-          UpdatedAt = DateTimeOffset.Now }
+          Role = None; Work = None; Roles = None; UpdatedAt = DateTimeOffset.Now }
     let update f =
         lock gate (fun () ->
             current <- { f current with UpdatedAt = DateTimeOffset.Now }
@@ -107,6 +111,12 @@ type Reporter(machine: string, hub: string, pushSeconds: int) =
                 Update = newer })
     member _.Failed(error: string) = update (fun s -> { s with LastError = Some error })
     member _.Linked(up: bool) = update (fun s -> { s with Linked = up || hub = "local" })
+    member _.Role(role: Domain.RoleState option) =
+        update (fun s ->
+            { s with
+                Role = role |> Option.map _.Name
+                Work = role |> Option.map _.Work
+                Roles = role |> Option.map (fun r -> r.Declared |> Array.map _.Name) })
 
 // ---- "sync now" from the tray: a request file the running agent picks up ----
 
@@ -124,6 +134,24 @@ let takeSyncRequest (machine: string) =
         else false
     with _ ->
         false
+
+// ---- role switches from the tray: the request names the role; the running agent switches ----
+
+let roleRequestPath (machine: string) = Path.Combine(directory (), $"role-request-{safe machine}")
+
+let requestRole (machine: string) (role: string) = writeAtomic (roleRequestPath machine) role
+
+/// The requested role, once: the file is removed when taken.
+let takeRoleRequest (machine: string) : string option =
+    let p = roleRequestPath machine
+    try
+        if File.Exists p then
+            let role = File.ReadAllText(p).Trim()
+            File.Delete p
+            if role = "" then None else Some role
+        else None
+    with _ ->
+        None
 
 // ---- pairing codes waiting to be sent ----
 

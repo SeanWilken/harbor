@@ -129,14 +129,19 @@ type JobBody = { Kind: string; Path: string option; Arg: string option }
 type HiddenBody = { Path: string; Hidden: bool }
 
 /// Must match the job.kind check in db/up.
-let knownJobs = [| "fetch"; "pull"; "diff" |]
+let knownJobs = [| "fetch"; "pull"; "diff"; "role" |]
 
-/// A diff names one repo and a commit or "worktree"; other jobs take no arg.
-let checkJob (body: JobBody) : Result<unit, string> =
+/// A diff names one repo and a commit or "worktree"; a role switch names one of the machine's
+/// declared roles (checked against its snapshot as well); other jobs take no arg.
+let checkJob (declared: RoleInfo[]) (body: JobBody) : Result<unit, string> =
     match body.Kind, body.Path, body.Arg with
     | k, _, _ when not (Array.contains k knownJobs) -> Error $"unknown job kind '{k}'"
     | "diff", Some _, Some a when a = "worktree" || GitParse.isSha a -> Ok()
     | "diff", _, _ -> Error "a diff needs a repo path and a commit id or 'worktree'"
+    | "role", None, Some r when declared |> Array.exists (fun d -> d.Name = r) -> Ok()
+    | "role", None, Some r when declared.Length = 0 -> Error $"this machine declares no roles, so it can't switch to '{r}'"
+    | "role", None, Some r -> Error $"'{r}' isn't one of this machine's roles"
+    | "role", _, _ -> Error "a role switch names a role and no path"
     | _, _, Some _ -> Error $"'{body.Kind}' takes no arg"
     | _ -> Ok()
 
@@ -284,7 +289,9 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
             if not (isAdmin ctx) then
                 return problem 403 "only hub admins can queue jobs"
             else
-                match checkJob body with
+                let! snap = if body.Kind = "role" then db.Snapshot id else Task.FromResult None
+                let declared = snap |> Option.bind _.Role |> Option.map _.Declared |> Option.defaultValue [||]
+                match checkJob declared body with
                 | Error e -> return problem 400 e
                 | Ok() ->
                     match! db.RequestJob(id, body.Kind, body.Path, body.Arg, actor ctx) with
@@ -341,6 +348,14 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
                 | None -> ()
             let offline = ms |> Array.filter (fun m -> m.Status = "approved" && not m.Connected) |> Array.map _.Name
             return Results.Json({| syncing = List.rev woken; offline = offline |}, statusCode = Nullable 202)
+        })) |> ignore
+
+    // ---- availability: which machines take outside work right now, by their current role ----
+    app.MapGet("/api/availability", Func<Task<IResult>>(fun () ->
+        task {
+            let! ms = db.Machines(fun (n, m) -> links.IsConnected(n, m))
+            let rows = Storage.availability DateTimeOffset.Now ms
+            return Results.Json({| at = DateTimeOffset.Now; machines = rows |})
         })) |> ignore
 
     // ---- pairing: admins create one-time codes; agents present them with a push ----

@@ -39,7 +39,12 @@ export type NetAddress = { address: string; prefixLength: number };
 export type NetInterface = { name: string; kind: "ethernet" | "wifi" | "tailnet" | "other"; mac?: string; addresses: NetAddress[]; gateway?: string; gatewayMac?: string };
 /** A way in besides harbor (agent config `access`): a desktop viewer page or an RDP host. */
 export type AccessEntry = { kind: "display" | "rdp"; name?: string; url?: string; host?: string; port?: number };
-export type Snapshot = { machine: Machine; repos: Repo[]; services: ServiceStatus[]; resources?: Resources; networks?: NetInterface[]; access?: AccessEntry[] };
+/** How much outside work a machine takes in a role: heavy work and inference, small jobs, or none. */
+export type Work = "full" | "light" | "none";
+export type RoleInfo = { name: string; work: Work };
+/** The machine's current duty (agent config `roles`); viewers see `by` as default/tray/hub and no `applied`. */
+export type RoleState = { name: string; work: Work; since: string; by: string; declared: RoleInfo[]; applied: string[] };
+export type Snapshot = { machine: Machine; repos: Repo[]; services: ServiceStatus[]; resources?: Resources; networks?: NetInterface[]; access?: AccessEntry[]; role?: RoleState };
 
 // Hub API (src/Harbor/Storage.fs)
 export type MachineStatus = "pending" | "approved" | "rejected";
@@ -54,6 +59,7 @@ export type MachineSummary = {
   /** The agent's harbor build, and newer harbor commits the hub knows of. */
   agentCommit?: string;
   update?: { behind: number; latest: string; latestAt: string };
+  role?: string; work?: Work; roleSince?: string;
 };
 export type JobInfo = {
   id: number; kind: string; path?: string; requestedAt: string; requestedBy: string;

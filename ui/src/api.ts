@@ -33,6 +33,8 @@ export const requestDiff = async (id: number, path: string, arg: string): Promis
   if (!r.ok || body?.id === undefined) throw new Error(body?.message ?? `diff: HTTP ${r.status}`);
   return body.id;
 };
+/** Switch a machine to one of the roles its config declares (admins; runs that role's actions there). */
+export const requestRole = (id: number, role: string) => post(`/api/machines/${id}/jobs`, { kind: "role", arg: role });
 export const requestPull = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "pull", path });
 export const setHidden = (id: number, path: string, hidden: boolean) => post(`/api/machines/${id}/hidden`, { path, hidden });
 export const fetchMe = () => get<Me>("/api/me");

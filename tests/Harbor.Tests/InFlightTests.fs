@@ -58,7 +58,7 @@ let ``diffs show a commit or tracked changes, never untracked contents or other 
     try
         let s = Inventory.Store({ Config.defaults with Roots = [| Path.Combine(root, "work") |] })
         s.Rescan().Wait()
-        let run arg path = (Agent.runJob s Config.defaultAllow { Id = 1L; Kind = "diff"; Path = Some path; Arg = Some arg }).Result
+        let run arg path = (Agent.runJob s Config.defaultAllow (Roles.Controller("test", [||])) { Id = 1L; Kind = "diff"; Path = Some path; Arg = Some arg }).Result
         let sha = (sh d [ "rev-parse"; "feat" ]).Trim()
         let shown = run sha d
         Assert.True(shown.Ok, shown.Output)
@@ -77,9 +77,9 @@ let ``diffs show a commit or tracked changes, never untracked contents or other 
 [<Fact>]
 let ``the hub accepts diff jobs only for a repo and a commit or the worktree`` () =
     let job kind path arg : Hub.JobBody = { Kind = kind; Path = path; Arg = arg }
-    Assert.Equal(Ok(), Hub.checkJob (job "diff" (Some "/r") (Some "worktree")))
-    Assert.Equal(Ok(), Hub.checkJob (job "diff" (Some "/r") (Some "0123abcd")))
-    Assert.Equal(Ok(), Hub.checkJob (job "fetch" None None))
+    Assert.Equal(Ok(), Hub.checkJob [||] (job "diff" (Some "/r") (Some "worktree")))
+    Assert.Equal(Ok(), Hub.checkJob [||] (job "diff" (Some "/r") (Some "0123abcd")))
+    Assert.Equal(Ok(), Hub.checkJob [||] (job "fetch" None None))
     for bad in [ job "diff" None (Some "worktree"); job "diff" (Some "/r") (Some "main"); job "diff" (Some "/r") None
                  job "fetch" None (Some "x"); job "rm" None None ] do
-        Assert.True(Result.isError (Hub.checkJob bad), string bad)
+        Assert.True(Result.isError (Hub.checkJob [||] bad), string bad)

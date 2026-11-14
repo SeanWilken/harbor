@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobInfo, MachineSummary, Me, Repo, SharedRepo, Snapshot } from "./types";
-import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, rescan, syncAll, setHidden, setStatus } from "./api";
+import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, requestRole, rescan, syncAll, setHidden, setStatus } from "./api";
 import { isDirty, isFetchable, pullBlocker, withWorktrees } from "./status";
 import { Header } from "./components/Header";
 import { DevicesDialog } from "./components/DevicesDialog";
@@ -150,6 +150,7 @@ export function App() {
   }, [current, loadJobs]);
   const doFetch = useCallback((path?: string) => doJob(requestFetch, path), [doJob]);
   const doPull = useCallback((path?: string) => doJob(requestPull, path), [doJob]);
+  const doRole = useCallback((name: string) => doJob((id) => requestRole(id, name)), [doJob]);
   // Pull one repo on several machines at once (shared repos): only copies that can fast-forward.
   const pullCopies = useCallback(async (copies: { machineId: number; path: string }[]) => {
     try { await Promise.all(copies.map((c) => requestPull(c.machineId, c.path))); setTimeout(() => void load(), 4000); }
@@ -289,7 +290,8 @@ export function App() {
                   pinned={pins.includes(current.id)} onPin={current.id === local?.id || current.status !== "approved" ? undefined : () => togglePin(current.id)}
                   onFetchAll={approved ? () => void doFetch() : undefined} fetchingAll={openJobs.some((j) => j.kind === "fetch" && !j.path)}
                   onPullAll={approved ? () => void doPull() : undefined} pullingAll={openJobs.some((j) => j.kind === "pull" && !j.path)}
-                  onScan={canScan ? () => void doScan() : undefined} scanning={scanning} />
+                  onScan={canScan ? () => void doScan() : undefined} scanning={scanning}
+                  onRole={approved ? (n) => void doRole(n) : undefined} switchingRole={openJobs.find((j) => j.kind === "role")?.arg} />
                 <nav className="ctabs" role="tablist" aria-label="machine content">
                   {CONTENT.map((c) => (
                     <button key={c} role="tab" aria-selected={c === content} className={c === content ? "on" : ""} onClick={() => setContent(c)}>

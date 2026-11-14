@@ -128,7 +128,8 @@ type Store(cfg: Config) =
                   Services = services
                   Resources = Some resources
                   Networks = Some networks
-                  Access = (if cfg.Access.Length = 0 then None else Some cfg.Access) }
+                  Access = (if cfg.Access.Length = 0 then None else Some cfg.Access)
+                  Role = None } // the agent adds it (Roles.Controller)
         }
 
     /// Fetch one repo (by path) or every fetchable repo, then rescan so ahead/behind reflects it.

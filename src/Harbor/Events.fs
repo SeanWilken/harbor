@@ -60,8 +60,14 @@ let private serviceEvents (prev: Snapshot) (next: Snapshot) =
           | Some Stopped, Running -> draft "service_up" None (Some s.Name) {| detail = s.Detail |}
           | _ -> () ]
 
+let private roleEvents (prev: Snapshot) (next: Snapshot) =
+    match prev.Role, next.Role with
+    | Some a, Some b when a.Name <> b.Name -> [ draft "role_changed" None (Some b.Name) {| from = a.Name; ``to`` = b.Name; work = b.Work; by = b.By |} ]
+    | None, Some b when b.By <> "default" -> [ draft "role_changed" None (Some b.Name) {| from = None; ``to`` = b.Name; work = b.Work; by = b.By |} ]
+    | _ -> []
+
 /// The first snapshot is a baseline: no events (commits are still recorded).
 let diff (prev: Snapshot option) (next: Snapshot) : Draft list =
     match prev with
     | None -> []
-    | Some p -> repoEvents p next @ serviceEvents p next
+    | Some p -> repoEvents p next @ serviceEvents p next @ roleEvents p next

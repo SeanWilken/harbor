@@ -20,6 +20,7 @@
     <Compile Include="Manifest.fs" />
     <Compile Include="Inventory.fs" />
     <Compile Include="AgentStatus.fs" />
+    <Compile Include="Roles.fs" />
     <Compile Include="AgentLink.fs" />
     <Compile Include="Agent.fs" />
   </ItemGroup>

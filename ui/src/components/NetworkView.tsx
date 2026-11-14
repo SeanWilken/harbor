@@ -7,6 +7,7 @@ import { SharedView } from "./SharedView";
 import { CompareView } from "./CompareView";
 import { RecapView } from "./RecapView";
 import { WorkView } from "./WorkView";
+import { workText } from "./RoleBar";
 
 export type NetView = "grid" | "map" | "repos" | "work" | "compare" | "recap";
 export const NET_VIEWS: NetView[] = ["grid", "map", "repos", "work", "compare", "recap"];
@@ -68,7 +69,7 @@ function MiniCard({ m, now, pinned, pinnable, onOpen, onPin }: { m: MachineSumma
     <div className={`mini ${l.key}`}>
       <button className="mini-main" onClick={onOpen}>
         <span className="mini-top"><span>{m.os ?? "unknown os"}</span><i className={`dot ${l.key}`} title={l.title} /></span>
-        <span className="mini-name">{m.name.toUpperCase()}{m.local && <small>hub</small>}</span>
+        <span className="mini-name">{m.name.toUpperCase()}{m.local && <small>hub</small>}{m.role && <small className={`role-chip w-${m.work}`} title={m.work ? workText[m.work] : undefined}>{m.role}</small>}</span>
         <span className="row"><span>{l.key === "online" ? activity(m.idleSeconds) ?? `pushed ${ago(m.lastPushAt, now)} ago` : l.label}</span>
           <span>cpu <b>{pct(m.cpuPercent)}</b> gpu <b>{pct(m.gpuPercent)}</b> ram <b>{pct(m.memPercent)}</b></span></span>
         <span className="row"><span>repos <b>{m.repos}</b></span><span>dirty <b>{m.dirty}</b></span><span>sync <b>{m.unsynced}</b></span></span>
@@ -99,7 +100,7 @@ function NetMap({ machines, now, onOpen }: { machines: MachineSummary[]; now: nu
         <title>{l.title}</title>
         <circle r={r} />
         <text y={-2}>{m.name.toUpperCase()}</text>
-        <text y={15} className="sub">{l.key !== "online" ? l.key : m.cpuPercent !== undefined ? `cpu ${Math.round(m.cpuPercent)}%` : m.local ? "hub" : `${m.repos} repos`}</text>
+        <text y={15} className="sub">{l.key !== "online" ? l.key : m.role ? m.role : m.cpuPercent !== undefined ? `cpu ${Math.round(m.cpuPercent)}%` : m.local ? "hub" : `${m.repos} repos`}</text>
       </g>
     );
   };

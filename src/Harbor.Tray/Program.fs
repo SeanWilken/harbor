@@ -31,6 +31,16 @@ let private agentLine (now: DateTimeOffset) (s: AgentStatus.Status) =
     | AgentStatus.Waiting why -> $"◐ {s.Machine}: {why}"
     | AgentStatus.Untethered why -> $"○ {s.Machine}: {why}"
 
+let private workText (work: string option) =
+    match work with
+    | Some "full" -> "takes heavy work"
+    | Some "light" -> "light work only"
+    | Some "none" -> "takes no outside work"
+    | _ -> ""
+
+let private roleLine (s: AgentStatus.Status) =
+    s.Role |> Option.map (fun r -> $"   role: {r}, {workText s.Work}")
+
 let private openUrl (url: string) =
     try
         if OperatingSystem.IsWindows() then Process.Start(ProcessStartInfo(url, UseShellExecute = true)) |> ignore
@@ -69,7 +79,9 @@ type App() =
     member private this.Menu(tray: TrayIcon) =
         let now = DateTimeOffset.Now
         let lines =
-            [ yield! view.Agents |> Array.map (agentLine now)
+            [ for a in view.Agents do
+                  yield agentLine now a
+                  yield! Option.toList (roleLine a)
               match view.Fleet with
               | Some f ->
                   let stale = if f.Stale > 0 then sprintf ", %d stale" f.Stale else ""
@@ -109,6 +121,18 @@ type App() =
                 item "Sync now" (fun () ->
                     for a in view.Agents do if a.Hub <> "local" then AgentStatus.requestSync a.Machine
                     hubUrl |> Option.iter (fun u -> Hub.sync u |> ignore))
+            // switching runs this machine's own declared role actions; the agent does it
+            for a in view.Agents do
+                match a.Roles with
+                | Some names when names.Length > 0 ->
+                    let sub = NativeMenu()
+                    for n in names do
+                        let i = NativeMenuItem(n, ToggleType = NativeMenuItemToggleType.Radio, IsChecked = (a.Role = Some n))
+                        i.Click.Add(fun _ -> AgentStatus.requestRole a.Machine n)
+                        sub.Items.Add i
+                    let label = if view.Agents.Length > 1 then $"Role ({a.Machine})" else "Role"
+                    menu.Items.Add(NativeMenuItem(label, Menu = sub))
+                | _ -> ()
             if view.Fleet.IsSome then item "Pair a device…" (fun () -> (Windows.pairDevice ()).Show())
             if view.Agents |> Array.exists (fun a -> a.Hub <> "local" && a.HubStatus <> "approved") || view.Agents.Length = 0 then
                 let hub = view.Agents |> Array.tryPick (fun a -> if a.Hub <> "local" then Some a.Hub else None)

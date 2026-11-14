@@ -32,6 +32,16 @@
     { "name": "db container", "check": { "kind": "podman", "container": "pg" } },
     { "name": "syncthing", "check": { "kind": "process", "name": "syncthing" } }
   ],
+  // One at a time; the first is the default. work: full | light | none (how much outside work it
+  // takes; none also pauses harbor's fetches). Switching into a role runs its stop, power, then
+  // start actions. The hub can only pick one of these names. See docs/ROLES.md.
+  "roles": [
+    { "name": "general", "work": "light", "power": "balanced" },
+    { "name": "worker", "work": "full", "power": "performance" },
+    { "name": "gaming", "work": "none", "power": "performance",
+      "start": [ { "command": "steam://open/bigpicture" } ],
+      "stop": [ { "process": "ollama" } ] }
+  ],
   // Desktop view / Remote control on this machine's card: a desktop viewer page (it pairs devices
   // itself) and an RDP host. Addresses only, never credentials.
   "access": [

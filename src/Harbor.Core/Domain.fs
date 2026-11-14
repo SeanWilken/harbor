@@ -154,13 +154,31 @@ type AccessEntry =
       Host: string option
       Port: int option }
 
+/// A role this machine's config declares, and how much outside work it takes while in it:
+/// "full" (spare capacity, heavy work and inference welcome), "light" (small jobs only) or "none".
+type RoleInfo = { Name: string; Work: string }
+
+/// The machine's current duty: one at a time, switched by a hub admin or at the machine (tray).
+/// A statement other systems can route work by; harbor reports it and doesn't enforce it.
+type RoleState =
+    { Name: string
+      Work: string
+      Since: DateTimeOffset
+      /// "default", "tray" or the hub admin who switched it.
+      By: string
+      Declared: RoleInfo[]
+      /// What the last switch's actions did, one line each (empty for the default).
+      Applied: string[] }
+
 type Snapshot =
     { Machine: Machine
       Repos: Repo[]
       Services: ServiceStatus[]
       Resources: Resources option
       Networks: NetInterface[] option
-      Access: AccessEntry[] option }
+      Access: AccessEntry[] option
+      /// None when the machine declares no roles (and for older agents).
+      Role: RoleState option }
 
 type OsInfo =
     { Id: string // os-release ID ("zorin", "ubuntu") or "windows"

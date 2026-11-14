@@ -25,7 +25,7 @@ let ``wrong codes from one caller are cut off after the limit, then allowed agai
 
 let private status hub linked lastUpdate : AgentStatus.Status =
     { Machine = "pi"; Hub = "http://devbox:7420"; HubStatus = hub; Linked = linked; LastPushAt = None
-      LastError = None; Pairing = false; PushSeconds = 60; Commit = None; Update = None; UpdatedAt = lastUpdate }
+      LastError = None; Pairing = false; PushSeconds = 60; Commit = None; Update = None; Role = None; Work = None; Roles = None; UpdatedAt = lastUpdate }
 
 [<Fact>]
 let ``tethered means approved, linked and the agent still writing`` () =

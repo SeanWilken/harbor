@@ -161,6 +161,15 @@ read-only `diff` job and the machine that has the work answers within seconds ov
 only runs it in repos it scans. Diff output is admin-only and cleared from the hub after a day. To
 keep a machine's code off the hub, leave `diff` out of its `agent.allow`.
 
+## Roles
+
+Each machine can declare roles in its own config (`general`, `worker`, `gaming`, `media`…) and is in
+one at a time. A role says how much outside work the machine takes (`full`, `light` or `none`) and
+can set a power profile and start or stop listed apps and user services when you switch into it.
+Admins switch from the machine card, anyone at the machine from the tray's Role menu.
+`GET /api/availability` tells the rest of the suite which machines take work right now; offline
+means none. See [docs/ROLES.md](docs/ROLES.md), a living draft.
+
 ## Manifests and recaps
 
 Each agent builds a **manifest** after its first scan and every `manifestHours` (default 6): OS and

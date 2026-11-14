@@ -46,7 +46,23 @@ type MachineSummary =
       Connected: bool
       /// The agent's harbor build and newer known commits (None = up to date or unknown build).
       AgentCommit: string option
-      Update: HarborUpdate option }
+      Update: HarborUpdate option
+      /// Current role and its work level ("full" | "light" | "none"); None when none are declared.
+      Role: string option
+      Work: string option
+      RoleSince: DateTimeOffset option }
+
+/// GET /api/availability row: what a scheduler should assume about each approved machine now.
+/// `available` is the role's work level while the machine is reachable, "none" when it isn't
+/// (a stale snapshot is never capacity), "unknown" when it declares no roles.
+type Availability =
+    { Machine: string
+      Role: string option
+      Work: string option
+      Since: DateTimeOffset option
+      Online: bool
+      Available: string
+      LastPushAt: DateTimeOffset option }
 
 /// GET /api/machines/{id}/jobs row.
 type JobInfo =
@@ -233,7 +249,29 @@ let summarize (m: machine) (payload: Push option) (hidden: string[]) : MachineSu
       IdleSeconds = res |> Option.bind _.IdleSeconds
       Connected = false
       AgentCommit = payload |> Option.bind _.AgentCommit
-      Update = None }
+      Update = None
+      Role = snap |> Option.bind _.Role |> Option.map _.Name
+      Work = snap |> Option.bind _.Role |> Option.map _.Work
+      RoleSince = snap |> Option.bind _.Role |> Option.map _.Since }
+
+/// Online: linked to the hub now, or pushed within three push intervals.
+let availability (now: DateTimeOffset) (ms: MachineSummary[]) : Availability[] =
+    ms
+    |> Array.filter (fun m -> m.Status = "approved")
+    |> Array.map (fun m ->
+        let window = TimeSpan.FromSeconds(float (3 * (defaultArg m.PushSeconds 300)))
+        let online = m.Connected || m.LastPushAt |> Option.exists (fun t -> now - t < window)
+        { Machine = m.Name
+          Role = m.Role
+          Work = m.Work
+          Since = m.RoleSince
+          Online = online
+          Available =
+            match m.Work with
+            | _ when not online -> "none"
+            | Some w -> w
+            | None -> "unknown"
+          LastPushAt = m.LastPushAt })
 
 /// Group approved machines' clones by remote key; only remotes on 2+ machines are "shared".
 let shareGroups (rows: (repo * string) seq) : SharedRepo[] =

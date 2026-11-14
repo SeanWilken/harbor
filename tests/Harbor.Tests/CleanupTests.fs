@@ -49,7 +49,7 @@ let ``jobs are sent once, resent only after the agent went quiet, never after fi
 [<Fact>]
 let ``an agent refuses job kinds it does not allow`` () =
     let store = Inventory.Store Config.defaults
-    let r = (Agent.runJob store [||] { Id = 7L; Kind = "fetch"; Path = None; Arg = None }).Result
+    let r = (Agent.runJob store [||] (Roles.Controller("test", [||])) { Id = 7L; Kind = "fetch"; Path = None; Arg = None }).Result
     Assert.False r.Ok
     Assert.Contains("not allowed", r.Output)
 
