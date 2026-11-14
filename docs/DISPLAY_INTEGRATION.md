@@ -6,7 +6,7 @@ each product's agent works only in its own repository, and a change that crosses
 an edit to the providing side's document, which the other side then picks up. Neither side reviews
 the other's code.
 
-Contract version: **1** (2026-11-13).
+Contract version: **1.1** (2026-11-13). 1.1 adds the service-worker rule (item 6 below).
 
 ## Who owns what
 
@@ -39,6 +39,12 @@ separate sign-in; it is not part of this contract.
 4. **The pairing cookie is scoped to the mount path** (`Path=<mount>`, `Secure`, `HttpOnly`,
    `SameSite=Strict`, no `Domain`), so machines behind the one hub origin stay apart.
 5. **Responses that carry credentials are `no-store`.**
+6. **No service worker under the mount.** Harbor answers 404 to a service-worker script request
+   (`Service-Worker: script`) under `/display/…`, so registration fails there. The viewer must
+   treat that as normal and work without one. On its own origin a worker is the viewer's choice, but
+   it must never answer a navigation with an opaque response. Safari refuses those with "Response
+   served by service worker is opaque", and the page doesn't load. That is what an iPad shows today
+   at the viewer's own address.
 
 If any of these changes, bump the version in the viewer's document and say what harbor must do.
 
@@ -53,6 +59,7 @@ If any of these changes, bump the version in the viewer's document and say what 
   forwarding headers.
 - **Harbor never reads, logs or stores** the viewer's cookie, pairing codes or the body of a pairing
   request. Forwarding logs are kept to warnings and errors. Harbor's UI has no service worker.
+- **No service worker runs on harbor's origin**, harbor's own or a viewer's (item 6).
 - **Harbor serves only its own bundled code** on its origin. That origin is as trusted as the viewer
   (same-origin with every mounted viewer), and harbor treats it that way.
 - **Media never passes through harbor.** Only the page, the API and signaling do.
@@ -76,7 +83,11 @@ Nothing here blocks harbor. These are suggestions for the viewer's own backlog; 
    read-only field.
 4. **Conformance tests on the viewer's side** for items 2–5 above (mount routes, origin only under the
    mount, cookie path, `no-store`). Harbor tests its side (forwarding rule, machine names).
-5. **Media reachability** (firewall rules for WebRTC on Windows) stays the viewer's install concern;
+5. **The service worker added in the viewer's latest build** breaks loading at its own address on
+   iPad Safari (the opaque-response error). It also has to tolerate failing to register under the
+   mount (item 6). Suggested approach: let navigations and `/api/` go straight to the network, cache
+   only static assets, and register only when the page isn't under a mount.
+6. **Media reachability** (firewall rules for WebRTC on Windows) stays the viewer's install concern;
    a working page through harbor doesn't prove media reachability.
 
 ## Later, not now

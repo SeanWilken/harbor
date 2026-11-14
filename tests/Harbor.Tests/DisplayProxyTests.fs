@@ -26,3 +26,12 @@ let ``nothing to forward without a display entry or a known tailnet name`` () =
 let ``machine segments are plain lowercase names`` () =
     for ok in [ "devbox"; "devbox-2"; "pi4" ] do Assert.True(DisplayProxy.isMachineSegment ok, ok)
     for bad in [ ""; "Devbox"; "-x"; "a.b"; "a/b"; ".."; "%2e" ] do Assert.False(DisplayProxy.isMachineSegment bad, bad)
+
+[<Fact>]
+let ``service worker scripts are recognised by the browser's header`` () =
+    let h (v: string option) =
+        let d = Microsoft.AspNetCore.Http.HeaderDictionary()
+        v |> Option.iter (fun v -> d["Service-Worker"] <- Microsoft.Extensions.Primitives.StringValues v)
+        d
+    Assert.True(DisplayProxy.isServiceWorkerScript (h (Some "script")))
+    Assert.False(DisplayProxy.isServiceWorkerScript (h None))

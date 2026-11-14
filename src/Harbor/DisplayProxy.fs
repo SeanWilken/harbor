@@ -88,6 +88,9 @@ let private client () =
             ConnectTimeout = TimeSpan.FromSeconds 10.,
             ActivityHeadersPropagator = null))
 
+/// Browsers send `Service-Worker: script` when fetching a worker script to register.
+let isServiceWorkerScript (headers: IHeaderDictionary) = headers["Service-Worker"].ToString() = "script"
+
 let addServices (services: IServiceCollection) = services.AddHttpForwarder() |> ignore
 
 let map (app: WebApplication) (resolver: Resolver) =
@@ -101,6 +104,11 @@ let map (app: WebApplication) (resolver: Resolver) =
             task {
                 ctx.Response.Headers.CacheControl <- "no-store"
                 match ctx.Request.RouteValues["machine"] with
+                | :? string as _ when isServiceWorkerScript ctx.Request.Headers ->
+                    // a viewer's worker would sit on harbor's origin and answer for the mount
+                    // (caching, offline pages): pairing and signaling must always reach the viewer
+                    ctx.Response.StatusCode <- 404
+                    do! ctx.Response.WriteAsync "harbor doesn't serve service workers under /display/"
                 | :? string as name when isMachineSegment name ->
                     match! resolver.Resolve name with
                     | Error why ->
