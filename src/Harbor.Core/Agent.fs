@@ -154,7 +154,9 @@ let run (store: Inventory.Store) (roles: Roles.Controller) (name: string) (pushS
                   Manifest = store.Manifest |> Option.filter (fun m -> lastStatus = "approved" && hubManifest <> Some m.Hash)
                   PairCode = if lastStatus = "approved" then None else AgentStatus.pendingPairCode name
                   AgentCommit = BuildInfo.commit }
-            match! sink push with
+            // a sink that throws (the hub's in-process one) must not end the loop
+            let! sent = task { try return! sink push with ex -> return Error(ex.GetBaseException().Message) }
+            match sent with
             | Ok reply ->
                 if failures > 0 || reply.Status <> lastStatus then
                     eprintfn $"""push: hub says {reply.Status}{reply.Message |> Option.map ((+) ", ") |> Option.defaultValue ""}"""

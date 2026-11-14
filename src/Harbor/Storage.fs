@@ -795,6 +795,20 @@ type Db(connectionString: string) =
                 | Some m when m.status <> "approved" -> return Error $"machine is {m.status}"
                 | Some m ->
                     let! open' = selectTask ctx { for j in job do where (j.machine_id = machineId && j.finished_at = None) }
+                    // the newest role request wins: an older one still waiting (machine offline, or
+                    // resent after a lost result) must not land after it
+                    if kind = "role" then
+                        let note = "superseded by a switch to " + defaultArg arg "?"
+                        for j in open' |> Seq.filter (fun j -> j.kind = "role" && j.arg <> arg) do
+                            let! _ =
+                                updateTask ctx {
+                                    for x in job do
+                                    set x.finished_at (Some DateTime.UtcNow)
+                                    set x.ok (Some false)
+                                    set x.output (Some note)
+                                    where (x.id = j.id)
+                                }
+                            ()
                     match open' |> Seq.tryFind (fun j -> j.kind = kind && j.path = path && j.arg = arg) with
                     | Some j -> return Ok j.id
                     | None ->
