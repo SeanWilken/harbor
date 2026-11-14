@@ -79,7 +79,8 @@ Use the lean agent, `harbor-agent`: a separate executable with no web server or 
 **Tray (desktops):** `harbor-tray` shows the tether light (green tethered, amber waiting, red not,
 grey nothing here), the agent's state, the fleet on the hub machine, and menu items "Open harbor",
 "Pair a device…" (hub) and "Pair with hub…" (agents). It reads the agent's status file and the hub's
-loopback API; it does not run the agent. Build: `dotnet publish src/Harbor.Tray -c Release -r
+loopback API. On Linux it doesn't run the agent (systemd does) but offers Update harbor…, Restart
+and Agent log for the harbor unit; on Windows it runs the agent hidden. Build: `dotnet publish src/Harbor.Tray -c Release -r
 linux-x64` (or `win-x64`); start at login with `deploy/harbor-tray.desktop`. Headless machines use
 `harbor-agent status` instead (an LED indicator for a Pi is planned).
 

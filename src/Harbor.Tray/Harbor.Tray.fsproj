@@ -24,6 +24,7 @@
     <Compile Include="Supervisor.fs" />
     <Compile Include="Autostart.fs" />
     <Compile Include="Update.fs" />
+    <Compile Include="AgentControl.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -70,6 +70,10 @@ type App() =
     let mutable view = { Agents = [||]; Fleet = None }
     /// --agent <path>: run harbor-agent hidden under the tray (Windows login start-up).
     let agent = argAfter "--agent" |> Option.map (fun exe -> Supervisor.Agent(exe, configPath))
+    let control =
+        match agent with
+        | Some a -> Some(AgentControl.supervised a openUrl)
+        | None -> AgentControl.installedUnit () |> Option.map AgentControl.ofUnit
     let mutable lastMenu = ""
 
     override this.Initialize() =
@@ -143,9 +147,9 @@ type App() =
             Update.script () |> Option.iter (fun script ->
                 let label = match newer with Some u -> $"Update harbor… ({u.Behind} newer)" | None -> "Update harbor…"
                 item label (fun () -> Update.run script))
-            agent |> Option.iter (fun a ->
-                item "Restart agent" a.Restart
-                item "Agent log" (fun () -> openUrl a.Log))
+            control |> Option.iter (fun c ->
+                item c.RestartLabel c.Restart
+                item "Agent log" c.ShowLog)
             let login = NativeMenuItem("Start at login", ToggleType = NativeMenuItemToggleType.CheckBox, IsChecked = Autostart.isEnabled ())
             login.Click.Add(fun _ ->
                 try

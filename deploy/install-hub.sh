@@ -28,7 +28,21 @@ mkdir -p "$HOME/.config/systemd/user" "$HOME/.config/autostart" "$HOME/.local/bi
 cp "$repo/deploy/harbor-hub.service" "$HOME/.config/systemd/user/"
 ln -sf "$share/bin/harbor-tray" "$HOME/.local/bin/harbor-tray"
 cp "$repo/deploy/harbor-tray.desktop" "$HOME/.config/autostart/"
+# where this install came from, for the tray's "Update harbor..."
+printf '{ "repo": "%s", "installedAt": "%s" }\n' "$repo" "$(date -Iseconds)" > "$share/install.json"
 systemctl --user daemon-reload
 systemctl --user enable --now harbor-hub
 echo "harbor-hub: $(systemctl --user is-active harbor-hub). Logs: journalctl --user -u harbor-hub -f"
-echo "tray: starts at login; start it now with: harbor-tray &"
+
+# a running tray keeps the old build until restarted; restart it in the background, detached
+if pgrep -x harbor-tray >/dev/null 2>&1; then
+    pkill -x harbor-tray || true
+    if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+        setsid -f "$HOME/.local/bin/harbor-tray" >/dev/null 2>&1 </dev/null
+        echo "tray: restarted"
+    else
+        echo "tray: stopped (no display here); start it with: harbor-tray &"
+    fi
+else
+    echo "tray: starts at login; start it now with: harbor-tray &"
+fi

@@ -11,8 +11,16 @@ deploy/install-hub.sh    # hub + its own agent as a systemd user service, tray a
 ```
 
 `install-hub.sh` builds the UI and the hub, installs them under `~/.local/share/harbor`, copies
-`harbor.json` to `~/.config/harbor/hub.json` (mode 600) on the first run, and enables `harbor-hub`.
-Re-run it to update. Optional:
+`harbor.json` to `~/.config/harbor/hub.json` (mode 600) on the first run, enables `harbor-hub`, and
+restarts a running tray so it picks up the new build. Re-run it to update, or use the tray:
+
+- **Update harbor…** runs `deploy/update-linux.sh` in a terminal: `git pull --ff-only` in the
+  checkout recorded in `~/.local/share/harbor/install.json`, then the installer again (config kept).
+- **Restart hub + agent** restarts the `harbor-hub` unit (`harbor-agent` on agent-only machines,
+  where the item reads **Restart agent**). The web UI drops for a few seconds.
+- **Agent log** opens a terminal following `journalctl --user -u harbor-hub`.
+
+Optional:
 
 - `loginctl enable-linger "$USER"`: keep the hub running when you're logged out.
 - HTTPS for phones/iPads: `sudo tailscale serve --bg --https=7443 http://127.0.0.1:7425` (README).
