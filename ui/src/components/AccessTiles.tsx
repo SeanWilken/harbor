@@ -72,12 +72,12 @@ export function AccessTiles({ machine, access }: { machine: string; access?: Acc
     : mount ? "through harbor"
     : `${hostOf(display.url)}${reach === "down" ? " · no answer" : reach === "checking" ? " · checking" : ""}`;
   return (
-    <>
+    <div className="tiles">
       <Tile href={rdp?.host ? rdpLink(rdp.host, rdp.port) : undefined} icon={<MouseIcon />} title={rdp?.name ?? "Remote control"}
         detail={rdp?.host ? `RDP ${rdp.host}${rdp.port && rdp.port !== 3389 ? `:${rdp.port}` : ""}` : "not configured"}
         hint={rdp?.host ? "opens Windows App (Remote Desktop); it asks for the Windows sign-in itself" : howTo("rdp")} />
       <Tile href={mount ?? display?.url} here={!!mount} icon={<ScreenIcon />} title={display?.name ?? "Desktop view"} detail={displayDetail}
         hint={display?.url ? "opens this machine\'s display viewer; each device pairs there once with a code from that machine" : howTo("display")} />
-    </>
+    </div>
   );
 }

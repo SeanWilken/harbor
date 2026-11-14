@@ -277,7 +277,7 @@ export function App() {
       {!machines ? <p className="empty">loading…</p> : (
         <>
           <Tabs tab={tab} machines={machines} self={local} pins={pins} now={now} onTab={go} onPin={togglePin} onReorder={setPins} />
-          <section className={`card view-${tab.kind}`}>
+          <section key={JSON.stringify(tab)} className={`card view-${tab.kind}`}>
             {tab.kind === "network" && (
               <NetworkView machines={machines} shared={shared} admin={admin} view={netView} pins={pins} selfId={local?.id} now={now}
                 onView={setNetView} onOpen={openMachine} onPin={togglePin} onPullCopies={admin ? (cs) => void pullCopies(cs) : undefined} />
