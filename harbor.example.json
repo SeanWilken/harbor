@@ -20,7 +20,9 @@
     // health: optional path or URL whose body names a version. provider: a label to group by.
     "sites": [
       { "name": "shop", "url": "https://shop.example.com", "provider": "digitalocean", "health": "/healthz" },
-      { "name": "docs", "url": "https://docs.example.com", "provider": "digitalocean", "everyMinutes": 10 }
+      { "name": "docs", "url": "https://docs.example.com", "provider": "digitalocean", "everyMinutes": 10 },
+      // a DNS resolver (e.g. a Pi-hole): up while it answers a query for the name after the slash
+      { "name": "pi-dns", "url": "dns://100.101.1.5/example.com", "provider": "home", "everyMinutes": 1 }
     ]
     // "tailscaleSocket": "/var/snap/tailscale/common/socket/tailscaled.sock"  (found automatically)
   },

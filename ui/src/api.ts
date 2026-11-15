@@ -1,4 +1,4 @@
-import type { JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot, SiteSummary } from "./types";
+import type { AlertAction, AlertList, JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot, SiteSummary } from "./types";
 
 async function get<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -37,6 +37,13 @@ export const requestDiff = async (id: number, path: string, arg: string): Promis
 export const requestRole = (id: number, role: string) => post(`/api/machines/${id}/jobs`, { kind: "role", arg: role });
 export const fetchSites = () => get<SiteSummary[]>("/api/sites");
 export const checkSitesNow = () => post("/api/sites/check");
+/** The unseen queue and open alerts; with `historyDays`, also what closed in that window. */
+export const fetchAlerts = (historyDays?: number) => get<AlertList>(historyDays ? `/api/alerts?history=${historyDays}` : "/api/alerts");
+/** Mark these alerts seen, or every unseen one (admins). */
+export const ackAlerts = (ids?: number[]) => post("/api/alerts/ack", { ids });
+export const checkAlertsNow = () => post("/api/alerts/check");
+/** An alert's POST action: always one of the hub's own endpoints, with its own checks. */
+export const runAlertAction = (a: AlertAction) => post(a.post!, a.body);
 export const requestPull = (id: number, path?: string) => post(`/api/machines/${id}/jobs`, { kind: "pull", path });
 export const setHidden = (id: number, path: string, hidden: boolean) => post(`/api/machines/${id}/hidden`, { path, hidden });
 export const fetchMe = () => get<Me>("/api/me");

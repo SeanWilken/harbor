@@ -12,7 +12,9 @@ let loopback = "http://127.0.0.1:7420"
 
 let private http = new HttpClient(Timeout = TimeSpan.FromSeconds 3.)
 
-type Fleet = { Online: int; Stale: int; Pending: int; Total: int }
+type Fleet = { Online: int; Stale: int; Pending: int; Total: int; Alerts: int }
+
+type private AlertCount = { Unseen: int }
 
 type private Summary =
     { Name: string
@@ -21,10 +23,19 @@ type private Summary =
       PushSeconds: int option
       Connected: bool }
 
-/// Same rule as the UI: online when linked, or pushed within ~3 intervals.
+/// Same rule as the hub's availability: online when it pushed within 3 intervals (a link alone isn't enough).
 let private online (now: DateTimeOffset) (m: Summary) =
     let window = TimeSpan.FromSeconds(float (max 90 (3 * defaultArg m.PushSeconds 60)))
-    m.Connected || (m.LastPushAt |> Option.exists (fun t -> now - t < window))
+    m.LastPushAt |> Option.exists (fun t -> now - t < window)
+
+let private unseenAlerts () =
+    task {
+        try
+            let! a = http.GetFromJsonAsync<AlertCount>($"{loopback}/api/alerts", Config.jsonOptions)
+            return match a with null -> 0 | a -> a.Unseen
+        with _ ->
+            return 0
+    }
 
 /// None when no hub answers on loopback.
 let fleet () : Task<Fleet option> =
@@ -37,12 +48,14 @@ let fleet () : Task<Fleet option> =
                 let now = DateTimeOffset.Now
                 let approved = ms |> Array.filter (fun m -> m.Status = "approved")
                 let up = approved |> Array.filter (online now) |> Array.length
+                let! alerts = unseenAlerts ()
                 return
                     Some
                         { Online = up
                           Stale = approved.Length - up
                           Pending = ms |> Array.filter (fun m -> m.Status = "pending") |> Array.length
-                          Total = approved.Length }
+                          Total = approved.Length
+                          Alerts = alerts }
         with _ ->
             return None
     }

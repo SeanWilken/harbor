@@ -23,7 +23,7 @@ function Spark({ points }: { points: SiteSummary["points"] }) {
 
 function certText(checked: boolean, days?: number) {
   if (!checked) return { text: "cert –", tone: "dim2" };
-  if (days === undefined) return { text: "no TLS", tone: "dim2" };
+  if (days === undefined) return { text: "no TLS", tone: "dim2" }; // also every dns:// check
   if (days < 0) return { text: "certificate expired", tone: "danger-text" };
   return { text: `cert ${days}d`, tone: days < 7 ? "danger-text" : days < 14 ? "warn-text" : "dim" };
 }
@@ -32,7 +32,7 @@ function SiteCard({ s, now }: { s: SiteSummary; now: number }) {
   const state = !s.last ? "unknown" : s.last.ok ? "up" : "down";
   const cert = certText(!!s.last, s.certDays);
   return (
-    <a className={`site ${state}`} href={s.url} target="_blank" rel="noopener noreferrer" title={`open ${s.url}`}>
+    <Wrap url={s.url} className={`site ${state}`}>
       <span className="site-top">
         <span className="site-name"><i className={`dot ${state === "up" ? "online" : state === "down" ? "rejected" : ""}`} />{s.name}</span>
         <span className="dim2">{hostOf(s.url)}</span>
@@ -53,8 +53,15 @@ function SiteCard({ s, now }: { s: SiteSummary; now: number }) {
         <span className="site-note">{s.last?.version ? `version ${s.last.version}` : s.since ? `${state} for ${ago(s.since, now)}` : `every ${s.everyMinutes} min`}</span>
         {s.last && <span title={new Date(s.last.at).toLocaleString()}>checked {ago(s.last.at, now)} ago</span>}
       </span>
-    </a>
+    </Wrap>
   );
+}
+
+/** Websites open on click; a dns:// resolver check has nothing to open. */
+function Wrap({ url, className, children }: { url: string; className: string; children: React.ReactNode }) {
+  return url.startsWith("dns:")
+    ? <div className={className}>{children}</div>
+    : <a className={className} href={url} target="_blank" rel="noopener noreferrer" title={`open ${url}`}>{children}</a>;
 }
 
 /** Public websites (hub.sites), checked from the hub: up, response time, certificate, version. */

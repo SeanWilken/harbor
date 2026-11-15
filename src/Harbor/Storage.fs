@@ -67,6 +67,31 @@ type Availability =
       Available: string
       LastPushAt: DateTimeOffset option }
 
+/// Something the alert rules found right now; (Rule, Subject) identifies it across evaluations.
+type AlertCondition =
+    { Rule: string
+      Subject: string
+      MachineId: int64 option
+      /// "warn" | "critical"
+      Severity: string
+      Title: string
+      Detail: string option }
+
+type Alert =
+    { Id: int64
+      Rule: string
+      Subject: string
+      MachineId: int64 option
+      Severity: string
+      Title: string
+      Detail: string option
+      OpenedAt: DateTimeOffset
+      /// The last evaluation that still found the condition.
+      SeenAt: DateTimeOffset
+      ResolvedAt: DateTimeOffset option
+      AckedAt: DateTimeOffset option
+      AckedBy: string option }
+
 /// GET /api/machines/{id}/jobs row.
 type JobInfo =
     { Id: int64
@@ -202,6 +227,11 @@ let isDue (now: DateTime) (j: job) =
     j.finished_at.IsNone && j.sent_at |> Option.forall (fun sent -> now - sent > resendAfter)
 
 let private maxOutput = 8000
+
+let private alertOf (a: alert) : Alert =
+    { Id = a.id; Rule = a.rule; Subject = a.subject; MachineId = a.machine_id; Severity = a.severity
+      Title = a.title; Detail = a.detail; OpenedAt = dto a.opened_at; SeenAt = dto a.seen_at
+      ResolvedAt = a.resolved_at |> Option.map dto; AckedAt = a.acked_at |> Option.map dto; AckedBy = a.acked_by }
 
 let private jobInfo (j: job) : JobInfo =
     { Id = j.id
@@ -1035,7 +1065,8 @@ type Db(connectionString: string) =
                 let! recaps = run "recaps" "delete from recap where id not in (select id from recap order by period_end desc limit 52)"
                 let! codes = run "pairing codes" "delete from pairing_code where used_at is null and expires_at < now() - interval '1 day'"
                 let! checks = run "site checks" "delete from site_check where checked_at < now() - interval '30 days'"
-                return [ events; manifests; jobs; diffs; recaps; codes; checks ] |> List.filter (fun (_, n) -> n > 0)
+                let! alerts = run "alerts" "delete from alert where resolved_at < now() - interval '30 days'"
+                return [ events; manifests; jobs; diffs; recaps; codes; checks; alerts ] |> List.filter (fun (_, n) -> n > 0)
             })
 
     member _.SaveCheck(c: Sites.Check) : Task<unit> =
@@ -1070,6 +1101,76 @@ type Db(connectionString: string) =
                     ({ Site = x.site; At = dto x.checked_at; Ok = x.ok; Status = x.status; Ms = x.ms; Error = x.error
                        CertExpires = x.cert_expires |> Option.map dto; CertIssuer = x.cert_issuer; Version = x.version }: Sites.Check))
                 |> Seq.toArray
+        }
+
+    /// Open, refresh and resolve alerts against what the rules found. Only rules in `evaluated` can
+    /// resolve, so a rule that failed to run leaves its alerts as they were. Returns the new ones.
+    member _.SyncAlerts(now: DateTimeOffset, evaluated: string[], found: AlertCondition[]) : Task<Alert[]> =
+        serialized (fun ctx ->
+            task {
+                let at = utc now
+                let! open' = selectTask ctx { for a in alert do where (a.resolved_at = None) }
+                let openBy = open' |> Seq.map (fun a -> (a.rule, a.subject), a) |> Map.ofSeq
+                let foundKeys = found |> Array.map (fun c -> c.Rule, c.Subject) |> Set.ofArray
+                let opened = ResizeArray()
+                for c in found do
+                    match openBy.TryFind(c.Rule, c.Subject) with
+                    | Some a ->
+                        let! _ =
+                            updateTask ctx {
+                                for x in alert do
+                                set x.seen_at at
+                                set x.severity c.Severity
+                                set x.title c.Title
+                                set x.detail c.Detail
+                                where (x.id = a.id)
+                            }
+                        ()
+                    | None ->
+                        let row: alert_write =
+                            { rule = c.Rule; subject = c.Subject; machine_id = c.MachineId; severity = c.Severity
+                              title = c.Title; detail = c.Detail; opened_at = at; seen_at = at
+                              resolved_at = None; acked_at = None; acked_by = None }
+                        let! id = insertTask ctx { for x in alert do writeEntity row; getId x.id }
+                        opened.Add id
+                let gone =
+                    open'
+                    |> Seq.filter (fun a -> Array.contains a.rule evaluated && not (foundKeys.Contains(a.rule, a.subject)))
+                    |> Seq.map _.id
+                    |> Seq.toList
+                if not gone.IsEmpty then
+                    let! _ = updateTask ctx { for x in alert do set x.resolved_at (Some at); where (isIn x.id gone) }
+                    ()
+                let ids = List.ofSeq opened
+                let! rows = if ids.IsEmpty then Task.FromResult [] else selectTask ctx { for a in alert do where (isIn a.id ids); toList }
+                return rows |> Seq.map alertOf |> Seq.toArray
+            })
+
+    /// The unseen queue plus everything still open; with `history`, also what closed since then.
+    member _.Alerts(history: DateTimeOffset option) : Task<Alert[]> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let since = history |> Option.map utc |> Option.defaultValue DateTime.MaxValue
+            let! rows =
+                selectTask ctx {
+                    for a in alert do
+                    where (a.acked_at = None || a.resolved_at = None || a.opened_at >= since)
+                    orderByDescending a.opened_at
+                }
+            return rows |> Seq.map alertOf |> Seq.toArray
+        }
+
+    /// Mark alerts seen: these ids, or every unseen one. Returns how many changed.
+    member _.AckAlerts(ids: int64[] option, by: string) : Task<int> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let now = Some DateTime.UtcNow
+            match ids with
+            | Some ids ->
+                let ids = List.ofArray ids
+                return! updateTask ctx { for x in alert do set x.acked_at now; set x.acked_by (Some by); where (isIn x.id ids && x.acked_at = None) }
+            | None ->
+                return! updateTask ctx { for x in alert do set x.acked_at now; set x.acked_by (Some by); where (x.acked_at = None) }
         }
 
     /// (node id, name): the key agent links and wakes use.

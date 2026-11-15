@@ -127,6 +127,9 @@ let adminOrLoopback (ctx: HttpContext) =
 
 type JobBody = { Kind: string; Path: string option; Arg: string option }
 type HiddenBody = { Path: string; Hidden: bool }
+/// Mark these alerts seen, or (Ids missing) every unseen one.
+type AckBody = { Ids: int64[] option }
+type AlertView = { Alert: Storage.Alert; Actions: Alerts.Action[] }
 
 /// Must match the job.kind check in db/up.
 let knownJobs = [| "fetch"; "pull"; "diff"; "role" |]
@@ -224,7 +227,53 @@ let pruneLoop (db: Storage.Db) (stop: Threading.CancellationToken) : Task =
 
 let private wantsMarkdown (ctx: HttpContext) = ctx.Request.Query["format"].ToString() = "md"
 /// `agentUrl`: where agents should push (the hub's first tailnet IPv4 URL), shown when pairing.
-let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) (browserUrl: string option) (sites: Sites.Checker) =
+let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (recapSettings: Recap.Settings) (agentUrl: string option) (browserUrl: string option) (sites: Sites.Checker) (alerts: Alerts.Evaluator) =
+    // ---- alerts: a queue of conditions; each stays until seen, and while it still holds ----
+    app.MapGet("/api/alerts", Func<HttpContext, Task<IResult>>(fun ctx ->
+        task {
+            let admin = isAdmin ctx
+            let history =
+                match Int32.TryParse(ctx.Request.Query["history"].ToString()) with
+                | true, days when days > 0 -> Some(DateTimeOffset.Now.AddDays(-(float (min days 30))))
+                | _ -> None
+            let! rows = db.Alerts history
+            let snaps = Collections.Generic.Dictionary<int64, Snapshot option>()
+            let views = ResizeArray()
+            for a in rows do
+                let! snap =
+                    match a.Rule, a.MachineId with
+                    | "role_failed", Some id when admin ->
+                        task {
+                            match snaps.TryGetValue id with
+                            | true, s -> return s
+                            | _ ->
+                                let! s = db.Snapshot id
+                                snaps[id] <- s
+                                return s
+                        }
+                    | _ -> Task.FromResult None
+                // which role actions failed is admin detail, like the role's applied lines
+                let a = if admin || a.Rule <> "role_failed" then a else { a with Detail = None }
+                views.Add { Alert = a; Actions = Alerts.actions admin sites.Sites snap a }
+            return Results.Json({| alerts = views; unseen = rows |> Array.filter (fun a -> a.AckedAt.IsNone) |> Array.length |}, Config.jsonOptions)
+        })) |> ignore
+
+    app.MapPost("/api/alerts/ack", Func<HttpContext, AckBody, Task<IResult>>(fun ctx body ->
+        task {
+            if not (isAdmin ctx) then return problem 403 "only hub admins can mark alerts seen"
+            else
+                let! n = db.AckAlerts(body.Ids, actor ctx)
+                return Results.Json {| acked = n |}
+        })) |> ignore
+
+    app.MapPost("/api/alerts/check", Func<HttpContext, Task<IResult>>(fun ctx ->
+        task {
+            if not (isAdmin ctx) then return problem 403 "only hub admins can run the alert rules"
+            else
+                do! alerts.Now()
+                return Results.NoContent()
+        })) |> ignore
+
     // ---- sites: public websites checked from outside, on any host ----
     app.MapGet("/api/sites", Func<Task<IResult>>(fun () ->
         task {

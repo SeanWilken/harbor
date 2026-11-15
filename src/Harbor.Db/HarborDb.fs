@@ -11,6 +11,102 @@ module Version =
 
 module ``public`` =
 
+    type alert =
+        { [<ProviderDbType("Bigint")>]
+          id: int64
+          [<ProviderDbType("Text")>]
+          rule: string
+          [<ProviderDbType("Text")>]
+          subject: string
+          [<ProviderDbType("Bigint")>]
+          machine_id: Option<int64>
+          [<ProviderDbType("Text")>]
+          severity: string
+          [<ProviderDbType("Text")>]
+          title: string
+          [<ProviderDbType("Text")>]
+          detail: Option<string>
+          [<ProviderDbType("TimestampTz")>]
+          opened_at: System.DateTime
+          [<ProviderDbType("TimestampTz")>]
+          seen_at: System.DateTime
+          [<ProviderDbType("TimestampTz")>]
+          resolved_at: Option<System.DateTime>
+          [<ProviderDbType("TimestampTz")>]
+          acked_at: Option<System.DateTime>
+          [<ProviderDbType("Text")>]
+          acked_by: Option<string> }
+
+        interface IHasWrite<alert_write> with
+            /// This row's writable columns, as `writeEntity` takes them: `toWrite row`.
+            member this.ToWrite() : alert_write =
+                { rule = this.rule
+                  subject = this.subject
+                  machine_id = this.machine_id
+                  severity = this.severity
+                  title = this.title
+                  detail = this.detail
+                  opened_at = this.opened_at
+                  seen_at = this.seen_at
+                  resolved_at = this.resolved_at
+                  acked_at = this.acked_at
+                  acked_by = this.acked_by }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "rule"; Value = box this.rule; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "subject"; Value = box this.subject; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "machine_id"; Value = box this.machine_id; ProviderDbType = Some "Bigint" }
+                  { WriteColumn.Name = "severity"; Value = box this.severity; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "title"; Value = box this.title; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "detail"; Value = box this.detail; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "opened_at"; Value = box this.opened_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "seen_at"; Value = box this.seen_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "resolved_at"; Value = box this.resolved_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "acked_at"; Value = box this.acked_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "acked_by"; Value = box this.acked_by; ProviderDbType = Some "Text" } ]
+
+    /// The columns of `alert` a caller may write; the database owns the rest.
+    and alert_write =
+        { [<ProviderDbType("Text")>]
+          rule: string
+          [<ProviderDbType("Text")>]
+          subject: string
+          [<ProviderDbType("Bigint")>]
+          machine_id: Option<int64>
+          [<ProviderDbType("Text")>]
+          severity: string
+          [<ProviderDbType("Text")>]
+          title: string
+          [<ProviderDbType("Text")>]
+          detail: Option<string>
+          [<ProviderDbType("TimestampTz")>]
+          opened_at: System.DateTime
+          [<ProviderDbType("TimestampTz")>]
+          seen_at: System.DateTime
+          [<ProviderDbType("TimestampTz")>]
+          resolved_at: Option<System.DateTime>
+          [<ProviderDbType("TimestampTz")>]
+          acked_at: Option<System.DateTime>
+          [<ProviderDbType("Text")>]
+          acked_by: Option<string> }
+
+        interface IWriteOf<alert> with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "rule"; Value = box this.rule; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "subject"; Value = box this.subject; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "machine_id"; Value = box this.machine_id; ProviderDbType = Some "Bigint" }
+                  { WriteColumn.Name = "severity"; Value = box this.severity; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "title"; Value = box this.title; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "detail"; Value = box this.detail; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "opened_at"; Value = box this.opened_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "seen_at"; Value = box this.seen_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "resolved_at"; Value = box this.resolved_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "acked_at"; Value = box this.acked_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "acked_by"; Value = box this.acked_by; ProviderDbType = Some "Text" } ]
+
+    let alert = table<alert>
+
     type event =
         { [<ProviderDbType("Bigint")>]
           id: int64

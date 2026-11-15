@@ -181,6 +181,37 @@ certificate expires, and, if `health` names an endpoint, the version it reports 
 installed on the host. Network → **sites** shows each one with its last day: uptime, average
 response time and a latency trend. Admins can **check now**. Checks are kept 30 days.
 
+A site can also be a DNS resolver: `"url": "dns://<server>/<name>"` asks that server for `<name>`
+(default `example.com`) and counts any answer, including "no such name", as up. Use it for a Pi-hole
+or similar, with `everyMinutes: 1`.
+
+## Alerts
+
+The hub runs a few rules every minute against what it already knows and keeps a queue:
+
+| Rule | Fires when | Severity |
+| --- | --- | --- |
+| machine | an approved machine hasn't reported for three push intervals | critical |
+| role | the last role switch had an action that failed | warn |
+| repo | commits have existed only in one clone (not on any remote) for over 3 days; hidden repos and repos with no remote are skipped | warn |
+| site | a site (or DNS resolver) failed its last two checks | critical |
+| certificate | a site's certificate expires within 14 days (3 or fewer: critical) | warn |
+
+An alert stays **unseen** until an admin marks it seen, even if its condition has already cleared,
+so nothing slips by unnoticed. A seen alert stays listed while its condition still holds. When the
+condition clears and later comes back, that's a new, unseen alert. Each alert carries actions: open the
+machine, sync, check sites now and, for a failed role, **retry** it or **switch to the default role**
+(with a confirmation). Actions only call the hub's existing endpoints, so their own checks still
+apply. Viewers see alerts but not their actions, and not which role actions failed.
+
+The **Alerts** tab shows the unseen count; the tray shows it too, with an item that opens the tab.
+`GET /api/alerts` (`?history=7` adds what cleared in the last 7 days), `POST /api/alerts/ack`
+(`{ "ids": [...] }`, or no ids for all) and `POST /api/alerts/check` (run the rules now). Cleared
+alerts are kept 30 days.
+
+Not yet: notifications to a phone. Web push needs a service worker, which the display contract rules
+out on harbor's origin. A notifier such as ntfy is the likely route.
+
 ## Manifests and recaps
 
 Each agent builds a **manifest** after its first scan and every `manifestHours` (default 6): OS and

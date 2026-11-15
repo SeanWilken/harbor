@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { MachineSummary } from "../types";
 import { liveness } from "../status";
 
-export type Tab = { kind: "this" } | { kind: "network" } | { kind: "pending" } | { kind: "machine"; id: number };
+export type Tab = { kind: "this" } | { kind: "network" } | { kind: "alerts" } | { kind: "pending" } | { kind: "machine"; id: number };
 
 export const sameTab = (a: Tab, b: Tab) => a.kind === b.kind && (a.kind !== "machine" || (b.kind === "machine" && a.id === b.id));
 
@@ -13,7 +13,7 @@ export function parseHash(hash: string): Tab | undefined {
   const m = hash.match(/^#m\/(\d+)$/);
   if (m) return { kind: "machine", id: Number(m[1]) };
   const k = hash.slice(1).split("/")[0];
-  return k === "this" || k === "network" || k === "pending" ? { kind: k } : undefined;
+  return k === "this" || k === "network" || k === "alerts" || k === "pending" ? { kind: k } : undefined;
 }
 
 type Props = {
@@ -22,6 +22,8 @@ type Props = {
   /** The browser's own machine, shown as "This machine". */
   self?: MachineSummary;
   pins: number[];
+  /** Unseen alerts, shown on the Alerts tab. */
+  alerts: number;
   now: number;
   onTab: (t: Tab) => void;
   onPin: (id: number) => void;
@@ -40,8 +42,8 @@ export const moveBefore = (ids: number[], id: number, target: number) => {
   return [...rest.slice(0, at), id, ...rest.slice(at)];
 };
 
-/** Fixed tabs (this machine, network, pending), then pinned machines (drag to reorder) and the one opened from the grid (☆ saves it). */
-export function Tabs({ tab, machines, self, pins, now, onTab, onPin, onReorder }: Props) {
+/** Fixed tabs (this machine, network, alerts, pending), then pinned machines (drag to reorder) and the one opened from the grid (☆ saves it). */
+export function Tabs({ tab, machines, self, pins, alerts, now, onTab, onPin, onReorder }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const pending = machines.filter((m) => m.status === "pending").length;
   const opened = tab.kind === "machine" && !pins.includes(tab.id) ? [tab.id] : [];
@@ -63,6 +65,7 @@ export function Tabs({ tab, machines, self, pins, now, onTab, onPin, onReorder }
       <div className="fixed">
         {self && button({ kind: "this" }, <><Dot m={self} now={now} />This machine</>)}
         {button({ kind: "network" }, <>Network <small>{machines.filter((m) => m.status !== "rejected").length}</small></>)}
+        {button({ kind: "alerts" }, <>Alerts <small className={alerts ? "alertn" : ""}>{alerts}</small></>)}
         {button({ kind: "pending" }, <>Pending <small className={pending ? "pend" : ""}>{pending}</small></>)}
       </div>
       <div className={`pinned ${extra.length ? "" : "none"}`}>

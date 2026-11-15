@@ -19,6 +19,7 @@
     <Compile Include="InFlightTests.fs" />
     <Compile Include="RolesTests.fs" />
     <Compile Include="SitesTests.fs" />
+    <Compile Include="AlertsTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

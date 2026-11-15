@@ -35,8 +35,8 @@ export function liveness(m: MachineSummary, now = Date.now()): Liveness {
   if (m.status === "pending") return { key: "pending", label: "pending", tone: "special", title: `waiting for approval · ${since}` };
   if (m.status === "rejected") return { key: "rejected", label: "rejected", tone: "danger", title: since };
   const window = Math.max(3 * (m.pushSeconds ?? 60), 90) * 1000;
-  // A live link means the agent is up even between pushes.
-  return (last !== undefined && now - last < window) || m.connected
+  // Fresh reports only: a live link can outlast a stopped push loop (the hub's availability rule too).
+  return last !== undefined && now - last < window
     ? { key: "online", label: "online", tone: "ok", title: since }
     : { key: "stale", label: `stale ${ago(m.lastPushAt, now)}`, tone: "dim", title: since };
 }

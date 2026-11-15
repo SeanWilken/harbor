@@ -86,7 +86,66 @@ let private healthVersion (http: HttpClient) (url: string) =
             return None
     }
 
+/// A standard A query (recursion desired) for `name`.
+let dnsQuery (id: uint16) (name: string) : byte[] =
+    let labels =
+        name.TrimEnd('.').Split('.')
+        |> Array.collect (fun l -> Array.append [| byte l.Length |] (Text.Encoding.ASCII.GetBytes l))
+    Array.concat
+        [ [| byte (id >>> 8); byte id; 0x01uy; 0x00uy; 0uy; 1uy; 0uy; 0uy; 0uy; 0uy; 0uy; 0uy |]
+          labels
+          [| 0uy; 0uy; 1uy; 0uy; 1uy |] ]
+
+/// The response code when `reply` answers query `id`; None when it isn't a reply to it.
+/// 0 (an answer) and 3 (no such name) both mean the resolver is working.
+let dnsRcode (id: uint16) (reply: byte[]) : int option =
+    if reply.Length >= 12 && reply[0] = byte (id >>> 8) && reply[1] = byte id && reply[2] &&& 0x80uy <> 0uy then
+        Some(int (reply[3] &&& 0x0Fuy))
+    else
+        None
+
+let private checkDns (site: SiteConfig) : Task<Check> =
+    task {
+        let uri = Uri site.Url
+        let name = match uri.AbsolutePath.Trim('/') with "" -> "example.com" | n -> n
+        let port = if uri.Port > 0 then uri.Port else 53
+        let at = DateTimeOffset.Now
+        let sw = Diagnostics.Stopwatch.StartNew()
+        let! result =
+            task {
+                try
+                    use cts = new CancellationTokenSource(TimeSpan.FromSeconds 3.)
+                    let! addresses = Net.Dns.GetHostAddressesAsync(uri.Host, cts.Token)
+                    use udp = new Net.Sockets.UdpClient(addresses[0].AddressFamily)
+                    udp.Connect(addresses[0], port)
+                    let id = uint16 (Random.Shared.Next 65536)
+                    let! _ = udp.SendAsync(ReadOnlyMemory(dnsQuery id name), cts.Token)
+                    let mutable rcode = None
+                    while rcode.IsNone do
+                        let! r = udp.ReceiveAsync(cts.Token)
+                        rcode <- dnsRcode id r.Buffer
+                    return Ok(rcode.Value, int sw.ElapsedMilliseconds)
+                with ex ->
+                    return Error(reason ex)
+            }
+        return
+            { Site = site.Name
+              At = at
+              Ok = (match result with Ok(code, _) -> code = 0 || code = 3 | Error _ -> false)
+              Status = (match result with Ok(code, _) -> Some code | Error _ -> None)
+              Ms = (match result with Ok(_, ms) -> Some ms | Error _ -> None)
+              Error =
+                match result with
+                | Ok(0, _) | Ok(3, _) -> None
+                | Ok(code, _) -> Some $"DNS response code {code}"
+                | Error e -> Some e
+              CertExpires = None
+              CertIssuer = None
+              Version = None }
+    }
+
 let check (site: SiteConfig) : Task<Check> =
+    if site.Url.StartsWith "dns:" then checkDns site else
     task {
         let seen = ref None
         let rejected = ref None

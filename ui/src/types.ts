@@ -104,3 +104,12 @@ export type RecapReport = {
   machines: MachineChanges[]; drift: Drift[]; driftMore: number;
 };
 export type RecapInfo = { id: number; periodStart: string; periodEnd: string; createdAt: string };
+
+// Alerts (src/Harbor/Alerts.fs): one per condition; unseen until marked seen, open until it clears
+export type AlertAction = { label: string; href?: string; post?: string; body?: { kind: string; arg: string }; confirm?: string };
+export type Alert = {
+  id: number; rule: string; subject: string; machineId?: number; severity: "warn" | "critical";
+  title: string; detail?: string; openedAt: string; seenAt: string; resolvedAt?: string; ackedAt?: string; ackedBy?: string;
+};
+export type AlertView = { alert: Alert; actions: AlertAction[] };
+export type AlertList = { alerts: AlertView[]; unseen: number };

@@ -91,6 +91,7 @@ type App() =
                   let stale = if f.Stale > 0 then sprintf ", %d stale" f.Stale else ""
                   let pending = if f.Pending > 0 then sprintf ", %d pending" f.Pending else ""
                   yield $"hub: {f.Online}/{f.Total} online{stale}{pending}"
+                  if f.Alerts > 0 then yield (if f.Alerts = 1 then "1 unseen alert" else $"{f.Alerts} unseen alerts")
               | None -> ()
               if view.Agents.Length = 0 && view.Fleet.IsNone then yield "no harbor agent or hub on this machine" ]
         let key = String.Join("|", lines)
@@ -120,6 +121,7 @@ type App() =
                 | None, Some a -> Some a.Hub
                 | None, None -> None
             hubUrl |> Option.iter (fun u -> item "Open harbor" (fun () -> openUrl u))
+            view.Fleet |> Option.filter (fun f -> f.Alerts > 0) |> Option.iter (fun f -> item $"Alerts ({f.Alerts})…" (fun () -> openUrl (Hub.loopback + "/#alerts")))
             // this machine's agent(s) at once, then every linked machine through the hub
             if view.Agents.Length > 0 || hubUrl.IsSome then
                 item "Sync now" (fun () ->

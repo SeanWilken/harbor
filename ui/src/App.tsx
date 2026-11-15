@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobInfo, MachineSummary, Me, Repo, SharedRepo, Snapshot } from "./types";
-import { fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, requestRole, rescan, syncAll, setHidden, setStatus } from "./api";
+import { fetchAlerts, fetchJobs, fetchMachines, fetchMe, fetchShared, fetchSnapshot, requestFetch, requestPull, requestRefresh, requestRole, rescan, syncAll, setHidden, setStatus } from "./api";
 import { isDirty, isFetchable, pullBlocker, withWorktrees } from "./status";
 import { Header } from "./components/Header";
 import { DevicesDialog } from "./components/DevicesDialog";
@@ -8,6 +8,7 @@ import { parseHash, sameTab, tabHash, Tabs, type Tab } from "./components/Tabs";
 import { MachinePanel } from "./components/MachinePanel";
 import { NET_VIEWS, NetworkView, type NetView } from "./components/NetworkView";
 import { PendingView } from "./components/PendingView";
+import { AlertsView } from "./components/AlertsView";
 import { ServicesTable } from "./components/ServicesTable";
 import { DisksTable } from "./components/DisksTable";
 import { PackagesView } from "./components/PackagesView";
@@ -86,6 +87,14 @@ export function App() {
     } catch (e) { setErr((e as Error).message); }
   }, []);
   useEffect(() => { void load(); const t = setInterval(load, 10_000); return () => clearInterval(t); }, [load]);
+  // The Alerts tab's unseen count; the view itself refreshes faster while open.
+  const [unseen, setUnseen] = useState(0);
+  useEffect(() => {
+    const poll = () => fetchAlerts().then((l) => setUnseen(l.unseen), () => undefined);
+    poll();
+    const t = setInterval(poll, 60_000);
+    return () => clearInterval(t);
+  }, []);
   useEffect(() => { fetchMe().then(setMe, () => undefined); }, []);
 
   // Follow hash changes (back/forward, bookmarks, links) after load too.
@@ -181,7 +190,7 @@ export function App() {
   const openMachine = useCallback((m: MachineSummary) => go(m.id === local?.id ? { kind: "this" } : { kind: "machine", id: m.id }), [go, local]);
   const togglePin = useCallback((id: number) => setPins((ps) => (ps.includes(id) ? ps.filter((p) => p !== id) : [...ps, id])), []);
   const allTabs = useMemo<Tab[]>(() => [
-    ...(local ? [{ kind: "this" } as Tab] : []), { kind: "network" }, { kind: "pending" },
+    ...(local ? [{ kind: "this" } as Tab] : []), { kind: "network" }, { kind: "alerts" }, { kind: "pending" },
     ...pins.filter((id) => id !== local?.id && machines?.some((m) => m.id === id)).map((id): Tab => ({ kind: "machine", id })),
   ], [local, pins, machines]);
   const cycle = useCallback((d: number) => {
@@ -276,12 +285,13 @@ export function App() {
       {err && <div className="banner" role="alert">⚠ {err}<button className="link" onClick={() => setErr(null)}>dismiss</button></div>}
       {!machines ? <p className="empty">loading…</p> : (
         <>
-          <Tabs tab={tab} machines={machines} self={local} pins={pins} now={now} onTab={go} onPin={togglePin} onReorder={setPins} />
+          <Tabs tab={tab} machines={machines} self={local} pins={pins} alerts={unseen} now={now} onTab={go} onPin={togglePin} onReorder={setPins} />
           <section key={JSON.stringify(tab)} className={`card view-${tab.kind}`}>
             {tab.kind === "network" && (
               <NetworkView machines={machines} shared={shared} admin={admin} view={netView} pins={pins} selfId={local?.id} now={now}
                 onView={setNetView} onOpen={openMachine} onPin={togglePin} onPullCopies={admin ? (cs) => void pullCopies(cs) : undefined} />
             )}
+            {tab.kind === "alerts" && <AlertsView admin={admin} now={now} onUnseen={setUnseen} />}
             {tab.kind === "pending" && <PendingView machines={machines} now={now} onOpen={openMachine} onDecide={admin ? (id, v) => void decide(id, v) : undefined} onPaired={() => void load()} agentUrl={me?.agentUrl} />}
             {current && !snap && <p className="empty">loading {current.name}…</p>}
             {current && snap && (

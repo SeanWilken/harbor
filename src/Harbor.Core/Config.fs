@@ -145,14 +145,24 @@ let private webUri (u: string) =
     | true, NonNull uri when (uri.Scheme = "https" || uri.Scheme = "http") && uri.UserInfo = "" -> Some uri
     | _ -> None
 
-/// Names unique, URLs plain http(s) without credentials, health resolvable against the URL,
-/// checks no more often than every minute.
+/// `dns://<server>[:port]/<name>`: a resolver, checked by asking it for <name> (default example.com).
+let dnsUri (u: string) =
+    match Uri.TryCreate(u, UriKind.Absolute) with
+    | true, NonNull uri when uri.Scheme = "dns" && uri.Host <> "" && uri.UserInfo = "" -> Some uri
+    | _ -> None
+
+/// Names unique, URLs plain http(s) without credentials (or a dns:// resolver), health resolvable
+/// against the URL, checks no more often than every minute.
 let checkSites (sites: SiteFile[]) : SiteConfig[] =
     let checkedSites =
         sites
         |> Array.map (fun (s: SiteFile) ->
             if String.IsNullOrWhiteSpace s.Name then failwith "hub.sites: every site needs a name"
-            let url = match webUri s.Url with Some u -> u | None -> failwith $"hub.sites.{s.Name}: url must be http(s), without user:password"
+            let url =
+                match webUri s.Url |> Option.orElse (dnsUri s.Url) with
+                | Some u -> u
+                | None -> failwith $"hub.sites.{s.Name}: url must be http(s) without user:password, or dns://<server>/<name>"
+            if url.Scheme = "dns" && s.Health.IsSome then failwith $"hub.sites.{s.Name}: a dns:// check has no health endpoint"
             let health =
                 s.Health
                 |> Option.map (fun h ->
