@@ -53,14 +53,17 @@ type MachineSummary =
       RoleSince: DateTimeOffset option }
 
 /// GET /api/availability row: what a scheduler should assume about each approved machine now.
-/// `available` is the role's work level while the machine is reachable, "none" when it isn't
+/// `available` is the role's work level while the machine's report is fresh, "none" when it isn't
 /// (a stale snapshot is never capacity), "unknown" when it declares no roles.
 type Availability =
     { Machine: string
       Role: string option
       Work: string option
       Since: DateTimeOffset option
+      /// Reported within three push intervals. A live link alone isn't enough: its push loop may have stopped.
       Online: bool
+      /// Holds a live hub link now (jobs reach it at once); says nothing about how fresh its report is.
+      Linked: bool
       Available: string
       LastPushAt: DateTimeOffset option }
 
@@ -254,18 +257,22 @@ let summarize (m: machine) (payload: Push option) (hidden: string[]) : MachineSu
       Work = snap |> Option.bind _.Role |> Option.map _.Work
       RoleSince = snap |> Option.bind _.Role |> Option.map _.Since }
 
-/// Online: linked to the hub now, or pushed within three push intervals.
+/// A report counts while it's younger than three push intervals; every push refreshes it, changed or not.
+let fresh (now: DateTimeOffset) (m: MachineSummary) =
+    let window = TimeSpan.FromSeconds(float (3 * (defaultArg m.PushSeconds 300)))
+    m.LastPushAt |> Option.exists (fun t -> now - t < window)
+
 let availability (now: DateTimeOffset) (ms: MachineSummary[]) : Availability[] =
     ms
     |> Array.filter (fun m -> m.Status = "approved")
     |> Array.map (fun m ->
-        let window = TimeSpan.FromSeconds(float (3 * (defaultArg m.PushSeconds 300)))
-        let online = m.Connected || m.LastPushAt |> Option.exists (fun t -> now - t < window)
+        let online = fresh now m
         { Machine = m.Name
           Role = m.Role
           Work = m.Work
           Since = m.RoleSince
           Online = online
+          Linked = m.Connected
           Available =
             match m.Work with
             | _ when not online -> "none"

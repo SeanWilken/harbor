@@ -134,15 +134,20 @@ let private summary name work (lastPush: DateTimeOffset option) connected : Stor
       AgentCommit = None; Update = None; Role = work |> Option.map (fun _ -> "r"); Work = work; RoleSince = None }
 
 [<Fact>]
-let ``availability is the role's work while reachable, none when not`` () =
+let ``availability is the role's work while the report is fresh, none when not`` () =
     let now = DateTimeOffset.Now
     let rows =
         Storage.availability now
             [| summary "devbox" (Some "full") (Some now) true
                summary "gamebox" (Some "full") (Some(now.AddMinutes -10.)) false
                summary "pi" None (Some now) true
+               summary "stuck" (Some "full") (Some(now.AddHours -2.)) true // linked, but its pushes stopped
                { summary "new" (Some "full") (Some now) true with Status = "pending" } |]
-    Assert.Equal<(string * string) list>([ "devbox", "full"; "gamebox", "none"; "pi", "unknown" ], rows |> Array.map (fun r -> r.Machine, r.Available) |> List.ofArray)
+    Assert.Equal<(string * string) list>(
+        [ "devbox", "full"; "gamebox", "none"; "pi", "unknown"; "stuck", "none" ],
+        rows |> Array.map (fun r -> r.Machine, r.Available) |> List.ofArray)
+    let stuck = rows |> Array.find (fun r -> r.Machine = "stuck")
+    Assert.True(stuck.Linked && not stuck.Online)
 
 [<Fact>]
 let ``role cards name actions without full paths`` () =

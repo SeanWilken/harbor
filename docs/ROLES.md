@@ -104,9 +104,9 @@ machine falls back to the first declared role.
 {
   "at": "2026-11-13T21:04:00+00:00",
   "machines": [
-    { "machine": "devbox",  "role": "worker", "work": "full", "since": "…", "online": true,  "available": "full",    "lastPushAt": "…" },
-    { "machine": "gamebox", "role": "gaming", "work": "none", "since": "…", "online": true,  "available": "none",    "lastPushAt": "…" },
-    { "machine": "pi",      "online": true,  "available": "unknown", "lastPushAt": "…" }
+    { "machine": "devbox",  "role": "worker", "work": "full", "since": "…", "online": true,  "linked": true,  "available": "full",    "lastPushAt": "…" },
+    { "machine": "gamebox", "role": "gaming", "work": "none", "since": "…", "online": true,  "linked": false, "available": "none",    "lastPushAt": "…" },
+    { "machine": "pi",      "online": true,  "linked": true,  "available": "unknown", "lastPushAt": "…" }
   ]
 }
 ```
@@ -114,8 +114,12 @@ machine falls back to the first declared role.
 - `available` is the field to route by (*stable*). It equals `work` while the machine is online and
   is `none` when it's offline. A stale snapshot is never treated as capacity. It's `unknown` when the
   machine declares no roles.
-- `online` means the machine holds a live hub link or has pushed within the last three push
-  intervals.
+- `online` means the machine has reported (pushed) within the last three push intervals. Every
+  push counts, changed or not. A live hub link alone doesn't count, because a machine can hold its
+  link while its reports have stopped.
+- `linked` (added 2026-11-15) says whether the machine holds a live hub link right now, so a job
+  reaches it at once. It says nothing about how fresh the report is.
+- `lastPushAt` is when the report was taken. Consumers should check its age themselves, too.
 - `role`, `work` and `since` are left out (not null) when a machine declares no roles.
 - Only approved machines are listed.
 
