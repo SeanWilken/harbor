@@ -41,7 +41,7 @@ function SiteCard({ s, now }: { s: SiteSummary; now: number }) {
         {state === "unknown" ? <span className="dim">not checked yet</span>
           : state === "up" ? <b>{s.last?.ms} ms</b>
           : <b className="danger-text">down · {s.last?.error ?? "no answer"}</b>}
-        {s.last?.status !== undefined && state === "up" && <span className="dim2">HTTP {s.last.status}</span>}
+        {s.last?.status !== undefined && state === "up" && <span className="dim2">{s.url.startsWith("dns:") ? "DNS answered" : `HTTP ${s.last.status}`}</span>}
       </span>
       <Spark points={s.points} />
       <span className="row">
