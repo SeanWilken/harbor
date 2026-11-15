@@ -20,6 +20,7 @@
     <Compile Include="RolesTests.fs" />
     <Compile Include="SitesTests.fs" />
     <Compile Include="AlertsTests.fs" />
+    <Compile Include="ReportTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

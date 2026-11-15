@@ -16,6 +16,7 @@
     <Compile Include="Sites.fs" />
     <Compile Include="Storage.fs" />
     <Compile Include="Alerts.fs" />
+    <Compile Include="Report.fs" />
     <Compile Include="Hub.fs" />
     <Compile Include="DisplayProxy.fs" />
     <Compile Include="Program.fs" />

@@ -212,6 +212,33 @@ alerts are kept 30 days.
 Not yet: notifications to a phone. Web push needs a service worker, which the display contract rules
 out on harbor's origin. A notifier such as ntfy is the likely route.
 
+## Work-state report (for people and agents)
+
+`GET /api/report` is the whole fleet's work in one JSON document (`version: 1`; new fields don't
+bump it, changed or removed ones do). It's built from each machine's last report and nothing else:
+
+- `machines`: online (fresh report), linked, role, `available`, last report time, harbor build.
+- `repos`: clones grouped by remote (`host/owner/name`, never the raw URL, which may carry a token;
+  a repo with no remote is keyed `machine:path`). Each clone has its branch and head, ahead/behind
+  (and since when), staged/changed/new/conflicted counts, unpushed commits (and the oldest's date),
+  stashes, last commit, last fetch and any fetch error, local branches (with `gone` upstreams), the
+  worktree it belongs to, `agentHint` (its path or branch follows an agent's naming, such as
+  `.claude/worktrees` or `claude/…`; a hint only), and `stale` when its machine's report is old.
+  `sameHead` says whether every clone has the same commit checked out.
+- `attention`: what needs acting on, critical first, then the longest-standing. The kinds are
+  `conflicted`, `dirty`, `unpushed`, `diverged`, `behind`, `fetch_failed`, `gone_upstream`, `stashes`,
+  `no_remote` and `stale_report`, each with a `since` where known.
+- `alerts`: unseen or still-open alerts.
+
+Hidden repos are left out. `?machine=<name>` narrows to one machine, `?attention=1` keeps only repos
+that need something, and `?format=md` returns the same report as compact Markdown for an agent's
+context. Viewers get the same redactions as everywhere else: no git identities, no file names, no
+raw errors.
+
+Harbor reports facts, not plans: it doesn't know which agent owns a branch or what a task is for.
+Callers authenticate like the UI does (a tailnet login in `hub.admins` or `hub.viewers`); a scoped
+identity for unattended agents is still an open design item (docs/ROLES.md, open question 4).
+
 ## Manifests and recaps
 
 Each agent builds a **manifest** after its first scan and every `manifestHours` (default 6): OS and

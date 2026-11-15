@@ -266,6 +266,28 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
                 return Results.Json {| acked = n |}
         })) |> ignore
 
+    // ---- report: every machine's repos and their state in one document (?format=md for agents) ----
+    app.MapGet("/api/report", Func<HttpContext, Task<IResult>>(fun ctx ->
+        task {
+            let admin = isAdmin ctx
+            let q = ctx.Request.Query
+            let! ms = db.Machines(fun (n, m) -> links.IsConnected(n, m))
+            let mutable snaps = Map.empty
+            for m in ms |> Array.filter (fun m -> m.Status = "approved") do
+                match! db.Snapshot m.Id with
+                | Some s -> snaps <- snaps.Add(m.Id, (if admin then s else Redact.snapshot s))
+                | None -> ()
+            let! alerts = db.Alerts None
+            let machine = match q["machine"].ToString() with "" -> None | m -> Some m
+            let report =
+                Report.build DateTimeOffset.Now ms snaps alerts
+                |> Report.filter machine (q["attention"].ToString() = "1")
+            if q["format"].ToString() = "md" then
+                return Results.Text(Report.markdown report, "text/markdown; charset=utf-8")
+            else
+                return Results.Json(report, Config.jsonOptions)
+        })) |> ignore
+
     app.MapPost("/api/alerts/check", Func<HttpContext, Task<IResult>>(fun ctx ->
         task {
             if not (isAdmin ctx) then return problem 403 "only hub admins can run the alert rules"
