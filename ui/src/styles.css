@@ -305,8 +305,10 @@ a.act:active { transform: none; }
   .viewer b { display: none; }
   /* fixed tabs share the width; pinned machines become a scrolling row above the card */
   .mtabs { flex-direction: column; align-items: stretch; gap: 8px; }
-  .mtabs .fixed { display: grid; grid-template-columns: repeat(3, 1fr); order: 2; }
-  .mtabs .fixed .mtab { justify-content: center; padding: 10px 6px; }
+  /* one row however many fixed tabs there are: a wrapped row would sit between the selected tab and its card */
+  .mtabs .fixed { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); order: 2; }
+  .mtabs .fixed .mtab .wide { display: none; }
+  .mtabs .fixed .mtab { justify-content: center; padding: 10px 4px; gap: 6px; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .mtabs .pinned { order: 1; gap: 6px; }
   .mtabs .pinned::before { display: none; }
   .mtabs .pinned.none { display: none; }

@@ -63,7 +63,7 @@ export function Tabs({ tab, machines, self, pins, alerts, now, onTab, onPin, onR
   return (
     <nav className="mtabs" role="tablist" aria-label="views">
       <div className="fixed">
-        {self && button({ kind: "this" }, <><Dot m={self} now={now} />This machine</>)}
+        {self && button({ kind: "this" }, <><Dot m={self} now={now} />This<span className="wide"> machine</span></>)}
         {button({ kind: "network" }, <>Network <small>{machines.filter((m) => m.status !== "rejected").length}</small></>)}
         {button({ kind: "alerts" }, <>Alerts <small className={alerts ? "alertn" : ""}>{alerts}</small></>)}
         {button({ kind: "pending" }, <>Pending <small className={pending ? "pend" : ""}>{pending}</small></>)}
