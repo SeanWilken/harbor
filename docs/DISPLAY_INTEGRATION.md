@@ -89,6 +89,30 @@ Nothing here blocks harbor. These are suggestions for the viewer's own backlog; 
    only static assets, and register only when the page isn't under a mount.
 6. **Media reachability** (firewall rules for WebRTC on Windows) stays the viewer's install concern;
    a working page through harbor doesn't prove media reachability.
+7. **The stream doesn't start over cellular** (reported 2026-11-20). An iPhone on mobile data, signed
+   in to the tailnet, loaded the viewer and paired, but no video arrived. On home Wi-Fi the same
+   devices stream. Signaling went through Tailscale Serve, so the failure is in the media path. The
+   viewer's own `DECISIONS.md` lists no STUN, TURN or adaptive bitrate, and its
+   `SIGNALING_INTEGRATION.md` already warns that a working signaling route doesn't prove media
+   reachability. This is that case in practice. What harbor's side observed and suggests:
+   - **Likely cause.** On carrier networks Tailscale often can't connect the two devices directly
+     and falls back to its DERP relays, which carry little throughput and add latency. Not yet
+     confirmed: next time, run `tailscale status` on the host while the phone is connected. `relay`
+     instead of `direct` confirms it.
+   - **iOS Safari hides its host addresses** behind mDNS names, which the host can't resolve. The
+     host only learns the phone's address from incoming connectivity checks. So the host's own
+     candidates must include an address the phone can reach: the host's tailnet address (`100.x`)
+     on the `tailscale0` interface. Please check that `webrtcbin` gathers on that interface and
+     offers it. It's worth logging the selected candidate pair on each session.
+   - **Without adaptive bitrate**, software x264 at a fixed rate stalls on a link that has shrunk,
+     rather than dropping quality. `webrtcbin` exposes transport stats (RTT, loss, available
+     bitrate) that could drive the encoder's bitrate, and the VA-API encoder the decisions log
+     already names would free CPU for this.
+   - **A self-hosted TURN server** on the tailnet (for example coturn) is the fallback for when no
+     direct path forms. It needs its own credentials and validation, as the signaling document says.
+   - **Suggested acceptance test:** a phone on mobile data, Wi-Fi off, streams a desktop for
+     5 minutes. Record the selected candidate pair, bitrate and frame rate. "View from anywhere"
+     isn't proven until this passes.
 
 ## Later, not now
 
