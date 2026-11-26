@@ -1,4 +1,4 @@
-import type { AlertAction, AlertList, JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot, SiteSummary } from "./types";
+import type { AlertAction, AlertList, JobInfo, MachineSummary, Manifest, ManifestDiff, ManifestInfo, Me, RecapInfo, RecapReport, SharedRepo, Snapshot, SiteSummary, UnitView } from "./types";
 
 async function get<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -65,3 +65,12 @@ export const createPairingCode = async (): Promise<PairingCode> => {
 export const pairingState = (code: string) => get<{ expiresAt: string; usedBy?: string }>(`/api/pairing/${encodeURIComponent(code)}`);
 /** Ask the machine's agent to rescan and push now (the hub rate-limits this). */
 export const requestRefresh = (id: number) => post(`/api/machines/${id}/refresh`);
+export const fetchReleases = () => get<UnitView[]>("/api/releases");
+/** Save how a unit is usually released, for every clone of its repo (admins). */
+export const saveRecipe = async (repoKey: string, unit: string, profile: string | undefined, steps: string[]) => {
+  const r = await fetch("/api/releases/recipe", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ repoKey, unit, profile, steps }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => null) as { message?: string } | null)?.message ?? `recipe: HTTP ${r.status}`);
+};
+/** Queue a release (or, with steps ["status"], a migration status check) on the machine with the clone. */
+export const requestRelease = (machineId: number, repoPath: string, unit: string, profile: string | undefined, steps: string[]) =>
+  post(`/api/machines/${machineId}/jobs`, { kind: "release", path: repoPath, arg: JSON.stringify({ unit, profile, steps }) });

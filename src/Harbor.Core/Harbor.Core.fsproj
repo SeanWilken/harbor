@@ -15,6 +15,7 @@
     <Compile Include="Discovery.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Services.fs" />
+    <Compile Include="Releases.fs" />
     <Compile Include="Resources.fs" />
     <Compile Include="Network.fs" />
     <Compile Include="Manifest.fs" />
@@ -26,5 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 </Project>

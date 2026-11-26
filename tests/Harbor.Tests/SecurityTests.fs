@@ -50,7 +50,8 @@ let ``viewers do not see processes, hardware addresses, emails, file names or ra
                              { Name = "tailscale0"; Kind = "tailnet"; Mac = None; Gateway = None; GatewayMac = None
                                Addresses = [| { Address = "100.64.0.5"; PrefixLength = 32 } |] } |]
           Access = None
-          Role = None }
+          Role = None
+          Releases = None }
     let r = Redact.snapshot snap
     Assert.Empty(r.Resources.Value.Top)
     Assert.Equal(Some 5., r.Resources.Value.CpuPercent) // figures stay

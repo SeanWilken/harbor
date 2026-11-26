@@ -27,7 +27,7 @@ let private repo path (url: string option) oid : Repo =
 
 let private snap repos : Snapshot =
     { Machine = { Hostname = "h"; Os = "linux"; ScannedAt = now; ScanMs = 1L; Roots = [||] }
-      Repos = repos; Services = [||]; Resources = None; Networks = None; Access = None; Role = None }
+      Repos = repos; Services = [||]; Resources = None; Networks = None; Access = None; Role = None; Releases = None }
 
 let private url = "https://x-token:secret@github.com/example/app.git"
 

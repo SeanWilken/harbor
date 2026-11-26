@@ -179,6 +179,41 @@ type RoleState =
       /// What the last switch's actions did, one line each (empty for the default).
       Applied: string[] }
 
+/// A compose service in a release unit, as its compose file declares it.
+type ReleaseService =
+    { Name: string
+      /// With variables resolved from the unit's .env; None when it only builds.
+      Image: string option
+      Builds: bool
+      Profiles: string[] }
+
+/// A container compose started from a unit's folder.
+type ReleaseContainer = { Name: string; Service: string; Image: string; State: string }
+
+type MigrationInfo =
+    { /// Relative to the repo.
+      Dir: string
+      Files: int
+      Latest: string option
+      /// The runner harbor would call (relative to the repo), if one follows the contract.
+      Runner: string option }
+
+/// A folder in a repo that harbor can release: a compose file and what sits around it.
+type ReleaseUnit =
+    { /// The repo's path on this machine.
+      Repo: string
+      /// The unit's folder relative to the repo; "" is the repo root.
+      Path: string
+      Compose: string
+      Services: ReleaseService[]
+      Profiles: string[]
+      Migrations: MigrationInfo option
+      /// Steps this unit supports, in the order they run: pull, build, migrate, up.
+      Steps: string[]
+      Running: ReleaseContainer[]
+      /// Why a step isn't offered, or what couldn't be read.
+      Problems: string[] }
+
 type Snapshot =
     { Machine: Machine
       Repos: Repo[]
@@ -187,7 +222,9 @@ type Snapshot =
       Networks: NetInterface[] option
       Access: AccessEntry[] option
       /// None when the machine declares no roles (and for older agents).
-      Role: RoleState option }
+      Role: RoleState option
+      /// None for older agents; empty when no repo has a compose file.
+      Releases: ReleaseUnit[] option }
 
 type OsInfo =
     { Id: string // os-release ID ("zorin", "ubuntu") or "windows"

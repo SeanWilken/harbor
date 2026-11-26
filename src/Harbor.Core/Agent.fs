@@ -103,6 +103,9 @@ let runJob (store: Inventory.Store) (allow: string[]) (roles: Roles.Controller) 
                         else
                             return finish false $"{path} is not a repo harbor scans here"
                     | _ -> return finish false "a diff needs a repo path and a commit id or 'worktree'"
+                | "release" ->
+                    let! ok, output = store.Release(job.Path, job.Arg)
+                    return finish ok output
                 | other -> return finish false $"unknown job kind '{other}'"
             with ex ->
                 return finish false ex.Message

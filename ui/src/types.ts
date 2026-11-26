@@ -113,3 +113,18 @@ export type Alert = {
 };
 export type AlertView = { alert: Alert; actions: AlertAction[] };
 export type AlertList = { alerts: AlertView[]; unseen: number };
+
+// Releases (src/Harbor.Core/Releases.fs, src/Harbor/ReleaseView.fs)
+export type ReleaseService = { name: string; image?: string; builds: boolean; profiles: string[] };
+export type ReleaseContainer = { name: string; service: string; image: string; state: string };
+export type MigrationInfo = { dir: string; files: number; latest?: string; runner?: string };
+export type ReleaseStep = "pull" | "build" | "migrate" | "up";
+export type ReleaseUnit = {
+  repo: string; path: string; compose: string; services: ReleaseService[]; profiles: string[];
+  migrations?: MigrationInfo; steps: ReleaseStep[]; running: ReleaseContainer[]; problems: string[];
+};
+export type Recipe = { repoKey: string; unit: string; profile?: string; steps: ReleaseStep[]; updatedAt: string; updatedBy: string };
+export type UnitView = {
+  machineId: number; machine: string; repoName: string; repoPath: string; repoKey: string;
+  unit: ReleaseUnit; recipe: Recipe; saved: boolean; lastRun?: JobInfo; lastStatus?: JobInfo;
+};

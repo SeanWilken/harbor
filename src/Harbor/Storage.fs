@@ -233,6 +233,12 @@ let private alertOf (a: alert) : Alert =
       Title = a.title; Detail = a.detail; OpenedAt = dto a.opened_at; SeenAt = dto a.seen_at
       ResolvedAt = a.resolved_at |> Option.map dto; AckedAt = a.acked_at |> Option.map dto; AckedBy = a.acked_by }
 
+/// How a unit is usually released (shared by every clone of its repo).
+type Recipe = { RepoKey: string; Unit: string; Profile: string option; Steps: string[]; UpdatedAt: DateTimeOffset; UpdatedBy: string }
+
+/// A repo's identity across machines: its remote, or this machine and path when it has none.
+let repoKey (machineId: int64) (r: Repo) = remoteKeyOf r |> Option.defaultValue $"local:{machineId}:{r.Path}"
+
 let private jobInfo (j: job) : JobInfo =
     { Id = j.id
       Kind = j.kind
@@ -876,6 +882,42 @@ type Db(connectionString: string) =
             let! rows = selectTask ctx { for j in job do where (j.machine_id = machineId); orderByDescending j.id; take 20 }
             return rows |> Seq.map jobInfo |> Seq.toArray
         }
+
+    /// Recent release jobs on every machine, newest first.
+    member _.ReleaseJobs() : Task<(int64 * JobInfo)[]> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let! rows = selectTask ctx { for j in job do where (j.kind = "release"); orderByDescending j.id; take 300 }
+            return rows |> Seq.map (fun j -> j.machine_id, jobInfo j) |> Seq.toArray
+        }
+
+    member _.Recipes() : Task<Recipe[]> =
+        task {
+            use! ctx = factory.OpenContextAsync()
+            let! rows = selectTask ctx { for r in release_recipe do select r }
+            return
+                rows
+                |> Seq.map (fun r -> { RepoKey = r.repo_key; Unit = r.unit; Profile = r.profile; Steps = r.steps; UpdatedAt = dto r.updated_at; UpdatedBy = r.updated_by })
+                |> Seq.toArray
+        }
+
+    member _.SetRecipe(r: Recipe) : Task<unit> =
+        serialized (fun ctx ->
+            task {
+                let! _ = deleteTask ctx { for x in release_recipe do where (x.repo_key = r.RepoKey && x.unit = r.Unit) }
+                let! _ =
+                    insertTask ctx {
+                        into release_recipe
+                        entity
+                            { repo_key = r.RepoKey
+                              unit = r.Unit
+                              profile = r.Profile
+                              steps = r.Steps
+                              updated_at = r.UpdatedAt.UtcDateTime
+                              updated_by = r.UpdatedBy }
+                    }
+                ()
+            })
 
     member _.SetHidden(machineId: int64, path: string, hidden: bool, actor: string) : Task<unit> =
         serialized (fun ctx ->

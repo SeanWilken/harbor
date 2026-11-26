@@ -32,7 +32,7 @@ let private repo path (remotes: Remote[]) (unpushed: (DateTimeOffset * string) l
 
 let private snap repos role : Snapshot =
     { Machine = { Hostname = "h"; Os = "linux"; ScannedAt = now; ScanMs = 1L; Roots = [||] }
-      Repos = repos; Services = [||]; Resources = None; Networks = None; Access = None; Role = role }
+      Repos = repos; Services = [||]; Resources = None; Networks = None; Access = None; Role = role; Releases = None }
 
 let private origin = [| { Name = "origin"; Url = "https://github.com/example/app.git" } |]
 

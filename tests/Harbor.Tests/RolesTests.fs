@@ -98,11 +98,11 @@ let ``a role job runs without an allow entry; other kinds still need one`` () =
 let ``the hub only queues declared roles`` () =
     let declared = [| info "general" "light"; info "gaming" "none" |]
     let job arg path : Hub.JobBody = { Kind = "role"; Path = path; Arg = arg }
-    Assert.Equal(Ok(), Hub.checkJob declared (job (Some "gaming") None))
-    Assert.True(Result.isError (Hub.checkJob declared (job (Some "media") None)))
-    Assert.True(Result.isError (Hub.checkJob [||] (job (Some "gaming") None)))
-    Assert.True(Result.isError (Hub.checkJob declared (job None None)))
-    Assert.True(Result.isError (Hub.checkJob declared (job (Some "gaming") (Some "/srv"))))
+    Assert.Equal(Ok(), Hub.checkJob declared [||] (job (Some "gaming") None))
+    Assert.True(Result.isError (Hub.checkJob declared [||] (job (Some "media") None)))
+    Assert.True(Result.isError (Hub.checkJob [||] [||] (job (Some "gaming") None)))
+    Assert.True(Result.isError (Hub.checkJob declared [||] (job None None)))
+    Assert.True(Result.isError (Hub.checkJob declared [||] (job (Some "gaming") (Some "/srv"))))
 
 let private state name work by : RoleState =
     { Name = name; Work = work; Since = DateTimeOffset.Now; By = by
@@ -111,7 +111,7 @@ let private state name work by : RoleState =
 
 let private snap role : Snapshot =
     { Machine = { Hostname = "h"; Os = "windows"; ScannedAt = DateTimeOffset.Now; ScanMs = 1L; Roots = [||] }
-      Repos = [||]; Services = [||]; Resources = None; Networks = None; Access = None; Role = role }
+      Repos = [||]; Services = [||]; Resources = None; Networks = None; Access = None; Role = role; Releases = None }
 
 [<Fact>]
 let ``a role change is an event, the first default isn't`` () =

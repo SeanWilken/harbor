@@ -130,15 +130,22 @@ type HiddenBody = { Path: string; Hidden: bool }
 /// Mark these alerts seen, or (Ids missing) every unseen one.
 type AckBody = { Ids: int64[] option }
 type AlertView = { Alert: Storage.Alert; Actions: Alerts.Action[] }
+type RecipeBody = { RepoKey: string; Unit: string; Profile: string option; Steps: string[] }
 
 /// Must match the job.kind check in db/up.
-let knownJobs = [| "fetch"; "pull"; "diff"; "role" |]
+let knownJobs = [| "fetch"; "pull"; "diff"; "role"; "release" |]
 
 /// A diff names one repo and a commit or "worktree"; a role switch names one of the machine's
-/// declared roles (checked against its snapshot as well); other jobs take no arg.
-let checkJob (declared: RoleInfo[]) (body: JobBody) : Result<unit, string> =
+/// declared roles; a release names a repo and a request its units allow (both checked against the
+/// latest snapshot here, and again by the agent); other jobs take no arg.
+let checkJob (declared: RoleInfo[]) (units: ReleaseUnit[]) (body: JobBody) : Result<unit, string> =
     match body.Kind, body.Path, body.Arg with
     | k, _, _ when not (Array.contains k knownJobs) -> Error $"unknown job kind '{k}'"
+    | "release", Some p, Some a ->
+        Releases.decode a
+        |> Result.bind (Releases.check (units |> Array.filter (fun u -> u.Repo = p)))
+        |> Result.map ignore
+    | "release", _, _ -> Error "a release names a repo path and a request"
     | "diff", Some _, Some a when a = "worktree" || GitParse.isSha a -> Ok()
     | "diff", _, _ -> Error "a diff needs a repo path and a commit id or 'worktree'"
     | "role", None, Some r when declared |> Array.exists (fun d -> d.Name = r) -> Ok()
@@ -267,6 +274,36 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
         })) |> ignore
 
     // ---- report: every machine's repos and their state in one document (?format=md for agents) ----
+    // ---- releases: units detected in repos, the recipe each repo uses, and their last runs ----
+    app.MapGet("/api/releases", Func<HttpContext, Task<IResult>>(fun ctx ->
+        task {
+            let admin = isAdmin ctx
+            let! ms = db.Machines(fun (n, m) -> links.IsConnected(n, m))
+            let mutable snaps = Map.empty
+            for m in ms |> Array.filter (fun m -> m.Status = "approved") do
+                match! db.Snapshot m.Id with
+                | Some s -> snaps <- snaps.Add(m.Id, s)
+                | None -> ()
+            let! recipes = db.Recipes()
+            let! jobs = db.ReleaseJobs()
+            let views = ReleaseView.build ms snaps recipes jobs
+            return Results.Json((if admin then views else views |> Array.map ReleaseView.forViewer), Config.jsonOptions)
+        })) |> ignore
+
+    app.MapPut("/api/releases/recipe", Func<HttpContext, RecipeBody, Task<IResult>>(fun ctx body ->
+        task {
+            if not (isAdmin ctx) then
+                return problem 403 "only hub admins can change release recipes"
+            else
+                match ReleaseView.checkRecipe body.Steps with
+                | Error e -> return problem 400 e
+                | Ok steps ->
+                    do! db.SetRecipe
+                            { RepoKey = body.RepoKey; Unit = body.Unit; Profile = body.Profile; Steps = steps
+                              UpdatedAt = DateTimeOffset.Now; UpdatedBy = actor ctx }
+                    return Results.NoContent()
+        })) |> ignore
+
     app.MapGet("/api/report", Func<HttpContext, Task<IResult>>(fun ctx ->
         task {
             let admin = isAdmin ctx
@@ -378,9 +415,10 @@ let mapApi (app: WebApplication) (db: Storage.Db) (links: AgentLink.Registry) (r
             if not (isAdmin ctx) then
                 return problem 403 "only hub admins can queue jobs"
             else
-                let! snap = if body.Kind = "role" then db.Snapshot id else Task.FromResult None
+                let! snap = if body.Kind = "role" || body.Kind = "release" then db.Snapshot id else Task.FromResult None
                 let declared = snap |> Option.bind _.Role |> Option.map _.Declared |> Option.defaultValue [||]
-                match checkJob declared body with
+                let units = snap |> Option.bind _.Releases |> Option.defaultValue [||]
+                match checkJob declared units body with
                 | Error e -> return problem 400 e
                 | Ok() ->
                     match! db.RequestJob(id, body.Kind, body.Path, body.Arg, actor ctx) with

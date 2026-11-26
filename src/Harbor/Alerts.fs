@@ -63,7 +63,26 @@ let sites (now: DateTimeOffset) (site: Config.SiteConfig) (checks: Sites.Check[]
         | _ -> [||]
     Array.append down cert
 
-let rules = [| "offline"; "role_failed"; "unpushed"; "site_down"; "cert" |]
+/// A unit's latest release failed (migration status checks don't count); it clears when the next succeeds.
+let releaseFailed (machines: MachineSummary[]) (jobs: (int64 * JobInfo)[]) =
+    let names = machines |> Array.map (fun m -> m.Id, m.Name) |> Map.ofArray
+    jobs // newest first
+    |> Array.choose (fun (id, j) ->
+        match ReleaseView.jobUnit j, j.Ok with
+        | Some(path, r), Some ok when r.Steps <> [| "status" |] -> Some((id, path, r.Unit), (j, ok))
+        | _ -> None)
+    |> Array.distinctBy fst
+    |> Array.choose (fun ((id, path, unit), (j, ok)) ->
+        match names.TryFind id with
+        | Some name when not ok ->
+            let folder = if unit = "" then IO.Path.GetFileName path |> string else unit
+            let failedLine =
+                (defaultArg j.Output "").Split '\n' |> Array.tryFindBack (fun l -> l.StartsWith "── " && l.Contains "failed")
+            Some(cond "release_failed" $"{name}:{path}:{unit}" (Some id) "warn" $"{folder} on {name}: release failed"
+                     (failedLine |> Option.map (fun l -> l.TrimStart('─', ' '))))
+        | _ -> None)
+
+let rules = [| "offline"; "role_failed"; "unpushed"; "site_down"; "cert"; "release_failed" |]
 
 /// The job body a role action posts (the jobs endpoint's own shape).
 type JobBody = { Kind: string; Arg: string }
@@ -99,6 +118,9 @@ let actions (admin: bool) (sites: Config.SiteConfig[]) (snap: Snapshot option) (
               | _ -> ()
           | _ -> ()
       | "unpushed" -> yield! machine
+      | "release_failed" ->
+          yield link "Open releases" "#network/releases"
+          yield! machine
       | "site_down" | "cert" ->
           yield! adminOnly [ post "Check now" "/api/sites/check" None None ]
           match sites |> Array.tryFind (fun s -> s.Name = a.Subject) with
@@ -144,6 +166,11 @@ type Evaluator(db: Db, machines: unit -> Task<MachineSummary[]>, siteList: Confi
                         let! checks = db.SiteChecks(now.AddDays -1.)
                         let bySite = checks |> Array.groupBy _.Site |> Map.ofArray
                         return siteList |> Array.collect (fun s -> sites now s (bySite.TryFind s.Name |> Option.defaultValue [||]))
+                    })
+            do! attempt [ "release_failed" ] (fun () ->
+                    task {
+                        let! jobs = db.ReleaseJobs()
+                        return releaseFailed ms jobs
                     })
             let! opened = db.SyncAlerts(now, ran.ToArray(), found.ToArray())
             for a in opened do eprintfn $"alert: {a.Title}"

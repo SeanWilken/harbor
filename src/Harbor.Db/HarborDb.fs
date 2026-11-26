@@ -556,6 +556,31 @@ module ``public`` =
 
     let recap = table<recap>
 
+    type release_recipe =
+        { [<ProviderDbType("Text")>]
+          repo_key: string
+          [<ProviderDbType("Text")>]
+          unit: string
+          [<ProviderDbType("Text")>]
+          profile: Option<string>
+          [<ProviderDbType("Text,Array")>]
+          steps: string[]
+          [<ProviderDbType("TimestampTz")>]
+          updated_at: System.DateTime
+          [<ProviderDbType("Text")>]
+          updated_by: string }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "repo_key"; Value = box this.repo_key; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "unit"; Value = box this.unit; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "profile"; Value = box this.profile; ProviderDbType = Some "Text" }
+                  { WriteColumn.Name = "steps"; Value = box this.steps; ProviderDbType = Some "Text,Array" }
+                  { WriteColumn.Name = "updated_at"; Value = box this.updated_at; ProviderDbType = Some "TimestampTz" }
+                  { WriteColumn.Name = "updated_by"; Value = box this.updated_by; ProviderDbType = Some "Text" } ]
+
+    let release_recipe = table<release_recipe>
+
     type repo =
         { [<ProviderDbType("Bigint")>]
           machine_id: int64

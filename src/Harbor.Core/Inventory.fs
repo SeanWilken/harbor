@@ -73,12 +73,19 @@ let private pullOne (path: string) : Task<PullOutcome> =
                 | Error e -> return Failed e
     }
 
+/// Release units in every scanned repo except worktrees (they'd repeat their main repo's units).
+let detectUnits (scanned: Scanned[]) =
+    scanned
+    |> Array.filter (fun s -> s.Repo.WorktreeOf.IsNone)
+    |> Array.collect (fun s -> Releases.detect (OperatingSystem.IsWindows()) s.Repo.Path)
+
 type Store(cfg: Config) =
     let gate = new SemaphoreSlim(1, 1)
     let fetchGate = new SemaphoreSlim(1, 1)
     let sampler = Resources.Sampler()
     let mutable manifest: Manifest option = None
     let mutable scanned: Scanned[] = [||]
+    let mutable units: ReleaseUnit[] = [||]
     let mutable fetchErrors: Map<string, string> = Map.empty
     let mutable nextScan = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
     let mutable machine =
@@ -101,6 +108,7 @@ type Store(cfg: Config) =
                 let sw = Stopwatch.StartNew()
                 let! r = scanRepos cfg
                 scanned <- r
+                units <- detectUnits r
                 machine <-
                     { machine with
                         ScannedAt = DateTimeOffset.Now
@@ -121,7 +129,9 @@ type Store(cfg: Config) =
             let! services = services
             let! resources = resources
             let! networks = networks
+            let running = if units.Length = 0 then Task.FromResult [||] else Releases.containers ()
             let repos = scanned |> Array.map (fun s -> { s.Repo with FetchError = fetchErrors.TryFind s.Repo.Path })
+            let! running = running
             return
                 { Machine = machine
                   Repos = repos
@@ -129,7 +139,8 @@ type Store(cfg: Config) =
                   Resources = Some resources
                   Networks = Some networks
                   Access = (if cfg.Access.Length = 0 then None else Some cfg.Access)
-                  Role = None } // the agent adds it (Roles.Controller)
+                  Role = None // the agent adds it (Roles.Controller)
+                  Releases = Some(Releases.withRunning running units) }
         }
 
     /// Fetch one repo (by path) or every fetchable repo, then rescan so ahead/behind reflects it.
@@ -187,6 +198,20 @@ type Store(cfg: Config) =
                     return Ok results
                 finally
                     fetchGate.Release() |> ignore
+        }
+
+    /// Run a release on one repo's unit, re-detecting that repo's units first: the request is
+    /// checked against what is on disk now, not what the last scan saw.
+    member _.Release(path: string option, arg: string option) : Task<bool * string> =
+        task {
+            match path, arg |> Option.map Releases.decode with
+            | Some p, Some(Ok req) when scanned |> Array.exists (fun s -> s.Repo.Path = p) ->
+                match Releases.check (Releases.detect (OperatingSystem.IsWindows()) p) req with
+                | Ok(u, steps) -> return! Releases.run u req.Profile steps
+                | Error e -> return false, e
+            | Some p, Some(Ok _) -> return false, $"{p} is not a repo harbor scans here"
+            | _, Some(Error e) -> return false, e
+            | _ -> return false, "a release names a repo path and a request"
         }
 
     /// The latest installed-software manifest, once built.

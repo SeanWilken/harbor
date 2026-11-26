@@ -212,6 +212,25 @@ alerts are kept 30 days.
 Not yet: notifications to a phone. Web push needs a service worker, which the display contract rules
 out on harbor's origin. A notifier such as ntfy is the likely route.
 
+## Releases
+
+Harbor finds compose folders in the repos it tracks (the root, or up to three folders down in a
+monorepo, git-ignored deploy folders included) and shows each one under **Network › releases**:
+its services and images, which containers are running from it, its profiles and its migrations.
+An admin picks a profile and steps (`pull`, `build`, `migrate`, `up`), checks pending migrations,
+and releases. Harbor runs compose itself; only migrations call the repo's own runner. A recipe
+saved for a unit applies to every clone of that repo. A failed release raises an alert.
+
+A machine runs releases only when its config allows them:
+
+```json
+{ "agent": { "hub": "https://<hub>", "allow": ["fetch", "pull", "diff", "release"] } }
+```
+
+The hub sends a folder, a profile and step names, never a command; the agent checks them against
+what it finds on disk. What a repo provides (the migration runner contract) is in
+[docs/RELEASE_INTEGRATION.md](docs/RELEASE_INTEGRATION.md).
+
 ## Work-state report (for people and agents)
 
 `GET /api/report` is the whole fleet's work in one JSON document (`version: 1`; new fields don't

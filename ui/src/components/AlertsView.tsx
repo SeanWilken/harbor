@@ -4,7 +4,7 @@ import { ackAlerts, checkAlertsNow, fetchAlerts, runAlertAction } from "../api";
 import { ago } from "../format";
 
 const RULES: Record<string, string> = {
-  offline: "machine", role_failed: "role", unpushed: "repo", site_down: "site", cert: "certificate",
+  offline: "machine", role_failed: "role", unpushed: "repo", site_down: "site", cert: "certificate", release_failed: "release",
 };
 
 function AlertItem({ v, now, admin, busy, onAck, onAction }: {
