@@ -33,7 +33,7 @@ let private withRepo (runner: bool) (test: string -> unit) =
     File.WriteAllText(Path.Combine(deploy, ".env"), "API_IMAGE=\"example/api:1.2\"\nDB_PASSWORD=hunter2\n# comment\n")
     File.WriteAllText(Path.Combine(repo, "node_modules", "x", "compose.yaml"), "services: {}")
     for n in [ "0001_init"; "0002_more" ] do File.WriteAllText(Path.Combine(repo, "migrations", n + ".sql"), "")
-    if runner then File.WriteAllText(Path.Combine(repo, "migrate-db.sh"), "")
+    if runner then File.WriteAllText(Path.Combine(repo, "migration-runner.sh"), "")
     try test repo finally Directory.Delete(repo, true)
 
 [<Fact>]
@@ -46,7 +46,7 @@ let ``a deploy folder is found below the root, skipping dependency folders`` () 
         Assert.Equal(Some "example/api:1.2", (u.Services |> Array.find (fun s -> s.Name = "api")).Image)
         Assert.Equal(Some "example/web:local", (u.Services |> Array.find (fun s -> s.Name = "web")).Image)
         Assert.Equal<string list>([ "pull"; "build"; "migrate"; "up" ], List.ofArray u.Steps)
-        Assert.Equal(Some "migrate-db.sh", u.Migrations.Value.Runner)
+        Assert.Equal(Some "migration-runner.sh", u.Migrations.Value.Runner)
         Assert.Equal(Some "0002_more", u.Migrations.Value.Latest)
         Assert.Empty u.Problems
         // only image variables are read from .env
@@ -57,7 +57,7 @@ let ``migrations without a runner are a problem, not a step`` () =
     withRepo false (fun repo ->
         let u = (Releases.detect false repo)[0]
         Assert.DoesNotContain("migrate", u.Steps)
-        Assert.Contains(u.Problems, fun p -> p.Contains "no migrate-db.sh runner"))
+        Assert.Contains(u.Problems, fun p -> p.Contains "no migration-runner.sh runner"))
 
 [<Fact>]
 let ``variables resolve from env or their default, and an unset one is named`` () =
@@ -95,7 +95,7 @@ let ``steps become compose or runner commands, with only the checked profile fro
         Assert.Equal<string list>([ "podman"; "compose"; "-f"; "docker-compose.yml"; "--profile"; "core"; "up"; "-d"; "--force-recreate"; "--remove-orphans" ], argv)
         let dir, argv = Releases.command "podman" false u None "status"
         Assert.Equal(repo, dir)
-        Assert.Equal<string list>([ "bash"; Path.Combine(repo, "migrate-db.sh"); "status"; "--json" ], argv))
+        Assert.Equal<string list>([ "bash"; Path.Combine(repo, "migration-runner.sh"); "--action"; "status"; "--json" ], argv))
 
 [<Fact>]
 let ``running containers are matched to their unit by compose's working folder`` () =

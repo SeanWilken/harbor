@@ -43,18 +43,21 @@ migrations are pending in the confirmation.
 
 Harbor looks for, in the unit folder and then the repo root:
 
-- Linux and macOS: `migrate-db.sh`, run as `bash migrate-db.sh <action>`
-- Windows: `migrate-db.ps1`, run as `pwsh -File migrate-db.ps1 -Action <action>`
+- Linux and macOS: `migration-runner.sh`, run as `bash migration-runner.sh --action <action> [--json]`
+- Windows: `migration-runner.ps1`, run as `pwsh -File migration-runner.ps1 -Action <action> [-Json]`
 
 The runner must:
 
-1. Accept `status` and `apply`. Other actions are fine; harbor never sends them.
-2. With `status --json` (`-Json` in PowerShell), print one JSON object to stdout:
-   `{ "applied": ["0001_x", ...], "pending": ["0027_y", ...] }`. Extra fields are ignored.
-3. Start whatever it needs itself (for example `compose up -d postgres`) and wait for it.
-4. Exit non-zero on failure, and be safe to re-run: `apply` with nothing pending succeeds.
-5. Run from its own folder without prompts (stdin is closed) and read secrets from `.env` or the
-   environment, never from arguments.
+1. Accept the actions `status` and `apply`. It can have others; harbor never sends them.
+2. With `--json` (`-Json`), write JSON to stdout: one object, or one object per line (an event
+   stream). Harbor uses the last object that has `pending`, either a list of names or a count, or
+   `"upToDate": true`. Other fields and other lines are ignored. Without one, harbor shows
+   "pending unknown".
+3. Find its own defaults: the suite folder and migrations folder when no paths are passed, and
+   secrets from `.env` or the environment, never from arguments.
+4. Start or wait for what it needs (for example the database container), exit non-zero on
+   failure, and be safe to re-run: `apply` with nothing pending succeeds.
+5. Run without prompts: stdin is closed.
 
 ## Who can release
 
@@ -73,18 +76,28 @@ checked-out commit's runner and compose file say. Review what you pull before yo
 
 ### myAI core (`myai-suite`)
 
-Found while wiring harbor up, 2026-11-26. For the myAI agent to decide and do in its repo:
+Found while wiring harbor up, 2026-11-26 and updated the same day after reading the runner. For
+the myAI agent to decide and do in its repo:
 
-1. **No Linux migration runner is committed.** `migrate-db.sh` (from the bootstrap bundle) calls
-   `migration-runner.sh`, but the repo only has `migration-runner.ps1`, and PowerShell isn't
-   installed on the Linux host. Migrations can't run there today, from harbor or by hand.
-2. **The deployment folder's scripts aren't in the repo.** `myai-suite/` is git-ignored except its
-   compose file; `deploy.*`, `refresh-images.*` and `migrate-db.*` come from a bootstrap bundle on a
-   share. Harbor only needs the migration runner, so committing that (and generating `.env` only)
-   is enough.
-3. **Named arguments.** `deploy.sh` takes three positional `true`/`false` values, and
-   `refresh-images.sh` takes the image list first where `deploy.sh` takes the profile first. If the
-   scripts stay for manual use, named flags (`--profile`, `--refresh`, `--skip-migrations`) would
-   remove the ordering trap. Harbor doesn't call these two scripts.
-4. **`status --json`** as in the contract above, so harbor can show pending migrations before a
-   release.
+1. **The runner isn't on the default branch yet.** `migration-runner.sh` and
+   `scripts/migration-helper.mjs` are in a feature commit ("add deployment orchestration") that
+   is on feature branches but not on master. A clone on master has only `migration-runner.ps1`,
+   which calls a helper it doesn't have. Once that commit lands, harbor offers `migrate` for
+   `myai-suite` with no further change on either side.
+2. **`status --json` doesn't say what's pending.** The helper runs grate with `--isuptodate` and
+   writes events (`migration.started`, `migration.completed` with grate's stdout inside). Harbor
+   reads the last event that has `pending` (names or a count) or `upToDate`, so adding either to
+   the `migration.completed` event for `status` is enough. Names are better: they go in the
+   release confirmation.
+3. **Does the runner start the database?** The helper waits up to `--wait-seconds` for the
+   database; the bundle's `deploy.sh` started the `postgres` service first. When the suite is
+   down, a release's `migrate` step runs before `up`, so the runner (or the helper) should start
+   `postgres` itself, as the contract asks.
+4. **Prerequisites on the host:** Node or Bun, plus the .NET `grate` tool (`--restore-tools`).
+   Saying so in the runner's error when grate is missing would make a failed release
+   self-explanatory.
+5. **The deployment folder's other scripts** (`deploy.*`, `refresh-images.*`, `migrate-db.*`)
+   come from a bootstrap bundle and aren't in the repo. Harbor doesn't need them. If they stay for
+   manual use: `deploy.sh` takes three positional `true`/`false` values, and `refresh-images.sh`
+   takes the image list first where `deploy.sh` takes the profile first. Named flags
+   (`--profile`, `--refresh`, `--skip-migrations`) would remove the ordering trap.

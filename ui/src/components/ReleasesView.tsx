@@ -10,15 +10,22 @@ const STEP_HINT: Record<ReleaseStep, string> = {
   up: "recreate the containers",
 };
 
-/** Pending migrations from a status check's JSON ({ applied, pending }); undefined if unreadable. */
-export function pendingOf(job?: JobInfo): string[] | undefined {
-  const out = job?.ok ? job.output ?? "" : "";
-  const a = out.indexOf("{"), b = out.lastIndexOf("}");
-  if (a < 0 || b < a) return undefined;
-  try {
-    const p = (JSON.parse(out.slice(a, b + 1)) as { pending?: unknown }).pending;
-    return Array.isArray(p) ? p.map(String) : undefined;
-  } catch { return undefined; }
+/** How many migrations a status check found pending, from its JSON: one object or one per line
+ * (events), using the last that says `pending` (a list or a count) or `upToDate`. Undefined if none does. */
+export function pendingOf(job?: JobInfo): number | undefined {
+  if (!job?.ok) return undefined;
+  let found: number | undefined;
+  for (const line of (job.output ?? "").split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("{")) continue;
+    try {
+      const o = JSON.parse(t) as { pending?: unknown; upToDate?: unknown };
+      if (Array.isArray(o.pending)) found = o.pending.length;
+      else if (typeof o.pending === "number") found = o.pending;
+      else if (o.upToDate === true) found = 0;
+    } catch { /* not a JSON line */ }
+  }
+  return found;
 }
 
 const running = (j?: JobInfo) => !!j && !j.finishedAt;
@@ -67,7 +74,7 @@ function UnitCard({ v, admin, now, onChanged }: { v: UnitView; admin: boolean; n
       setErr("Check migrations first, so you can see what will be applied.");
       return;
     }
-    const mig = steps.includes("migrate") ? `migrate (${pending === undefined ? "pending unknown" : `${pending.length} pending`})` : undefined;
+    const mig = steps.includes("migrate") ? `migrate (${pending === undefined ? "pending unknown" : `${pending} pending`})` : undefined;
     const list = steps.map((s) => (s === "migrate" ? mig : s)).join(", ");
     if (!window.confirm(`Release ${name} on ${v.machine}${profile ? ` with profile ${profile}` : ""}: ${list}?`)) return;
     void act(() => requestRelease(v.machineId, v.repoPath, u.path, profile, steps));
@@ -107,7 +114,7 @@ function UnitCard({ v, admin, now, onChanged }: { v: UnitView; admin: boolean; n
       {u.migrations && (
         <p className="relmig">
           <span>{u.migrations.files} migrations in <span className="mono">{u.migrations.dir}</span>{u.migrations.latest && <>, latest <span className="mono">{u.migrations.latest}</span></>}</span>
-          {pending !== undefined && <b className={pending.length ? "warn-text" : "ok-text"}>{pending.length ? `${pending.length} pending` : "all applied"}</b>}
+          {pending !== undefined && <b className={pending ? "warn-text" : "ok-text"}>{pending ? `${pending} pending` : "all applied"}</b>}
         </p>
       )}
       {u.problems.map((p) => <p key={p} className="warn-text relprob">{p}</p>)}

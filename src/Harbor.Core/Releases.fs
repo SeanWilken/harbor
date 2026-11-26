@@ -122,7 +122,7 @@ let private relative (repo: string) (path: string) =
     | r -> r.Replace('\\', '/')
 
 /// The runner a platform calls, per the contract.
-let runnerName (windows: bool) = if windows then "migrate-db.ps1" else "migrate-db.sh"
+let runnerName (windows: bool) = if windows then "migration-runner.ps1" else "migration-runner.sh"
 
 /// A migrations folder (unit first, then repo root) and the runner next to it.
 let migrations (windows: bool) (repo: string) (unitDir: string) : MigrationInfo option =
@@ -304,7 +304,7 @@ let command (engine: string) (windows: bool) (u: ReleaseUnit) (profile: string o
         let path = Path.Combine(u.Repo, r)
         let dir = Path.GetDirectoryName path |> Option.ofObj |> Option.defaultValue unitDir
         if windows then dir, [ "pwsh"; "-NoProfile"; "-File"; path; "-Action"; action ] @ (if json then [ "-Json" ] else [])
-        else dir, [ "bash"; path; action ] @ (if json then [ "--json" ] else [])
+        else dir, [ "bash"; path; "--action"; action ] @ (if json then [ "--json" ] else [])
     match step with
     | "pull" -> compose [ "pull" ]
     | "build" -> compose [ "build" ]
